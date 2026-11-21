@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SectionTag, StatTile } from '../components/common/CommonUi';
 import { Angka } from '../components/common/Angka';
-import { InteractiveGlobe } from '../components/interactive/InteractiveGlobe';
+import { GlobeToMap } from '../components/interactive/GlobeToMap';
 import { Reveal, TiltCard } from '../components/common/Reveal';
 import {
   IlluRadar, IlluPeta, IlluRespons, IlluLatihan, IlluSimulator, IlluStudiKasus, IlluMetodologi,
@@ -137,7 +137,7 @@ export const Beranda: React.FC<BerandaProps> = ({ onReplaySplash, introPlaying =
         </div>
 
         <div className="relative mx-auto mt-8 max-w-[1240px] w-full">
-          <InteractiveGlobe />
+          <GlobeToMap introPlaying={introPlaying} />
           <p className="mt-3 text-center text-xs text-ink-muted dark:text-white/50">Tim Universitas Indonesia · 2026</p>
         </div>
       </section>

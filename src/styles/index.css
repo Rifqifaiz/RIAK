@@ -156,3 +156,4 @@ input[type='range']::-moz-range-progress { background: #1E3A8A; height: 6px; bor
 .dark input[type='range']::-moz-range-thumb { background: #7FA2FF; border-color: rgb(var(--c-surface)); }
 .dark input[type='range']::-moz-range-progress { background: #7FA2FF; }
 input[type='range']:focus-visible { box-shadow: 0 0 0 3px rgba(127, 162, 255, .35); }
+.riak-ping-label-lg { font-size: 12px; left: 30px; top: 1px; border-color: rgba(34,229,255,.6); }

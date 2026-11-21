@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, CircleMarker, Marker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
+import { MapContainer, CircleMarker, Marker, GeoJSON, Tooltip as LeafletTooltip, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { Globe2, ChevronRight, ArrowLeft, MapPin, Plane, Building2, X, ZoomIn, Plus, Minus, Map as MapIcon, Satellite, MousePointerClick } from 'lucide-react';
+import { Globe2, ChevronRight, ArrowLeft, MapPin, Plane, Building2, X, ZoomIn, Plus, Minus, Map as MapIcon, Satellite, MousePointerClick, ShieldCheck, Ship } from 'lucide-react';
 import { InteractiveGlobe, InteractiveGlobeHandle, GlobeHotspot } from './InteractiveGlobe';
 import { fetchCsv, normalizeLeadTimes } from '../../data/loader';
 import { normalizeRegions, normalizeFacilities, withRobustCentroids } from '../../data/geo';
@@ -11,13 +11,49 @@ import {
   BaseLayers, FacilityLayer, MapSelection, Puskesmas, PuskesmasFile, ScrollZoomOnClick, selectionId, ZOOM_PIN, ZOOM_PKM, ZOOM_RS,
 } from '../map/FacilityLayer';
 import { FacilityDetail } from '../map/FacilityDetail';
+import { loadWorld50, INDONESIA_ID, INDONESIA_VIEW } from './worldData';
+import { feature } from 'topojson-client';
 
 type Stage = 'globe' | 'diving' | 'map' | 'leaving';
 
 const JKT: [number, number] = [-6.2, 106.8];
 const JABODETABEK_VIEW: [number, number] = [-6.33, 106.8];
-/** Koordinat bandara (lokasi publik), dipakai sebagai penanda pintu masuk. */
-const SOETTA: [number, number] = [-6.1256, 106.6559];
+const INDO: [number, number] = [INDONESIA_VIEW.lat, INDONESIA_VIEW.lon];
+/** Di bawah zoom ini peta menampilkan level Indonesia; di atasnya level Jabodetabek. */
+const ZOOM_INDO_MAX = 8;
+/** Zoom keluar melewati ini → kembali ke globe. */
+const ZOOM_TO_GLOBE = 4;
+
+/** Pintu masuk prioritas (entry_points.csv); koordinat = lokasi publik bandara/pelabuhan. */
+const ENTRY_POINTS: Array<{ nama: string; jenis: 'udara' | 'laut'; provinsi: string; lat: number; lon: number }> = [
+  { nama: 'Bandara Soekarno-Hatta', jenis: 'udara', provinsi: 'Banten', lat: -6.1256, lon: 106.6559 },
+  { nama: 'Bandara I Gusti Ngurah Rai', jenis: 'udara', provinsi: 'Bali', lat: -8.7482, lon: 115.167 },
+  { nama: 'Batam', jenis: 'laut', provinsi: 'Kepulauan Riau', lat: 1.1301, lon: 104.053 },
+  { nama: 'Bandara Kualanamu', jenis: 'udara', provinsi: 'Sumatera Utara', lat: 3.6422, lon: 98.8853 },
+  { nama: 'Bandara Juanda', jenis: 'udara', provinsi: 'Jawa Timur', lat: -7.3798, lon: 112.7869 },
+];
+
+const targetIcon = L.divIcon({
+  className: '',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+  html: `<span class="riak-ping" style="--c:#22e5ff;width:24px;height:24px"><span></span><span></span><i></i></span><b class="riak-ping-label riak-ping-label-lg">Jabodetabek · 461 RS · klik untuk masuk</b>`,
+});
+
+/** Zoom keluar jauh di peta → kembali ke globe dari posisi yang sama. */
+const ZoomOutWatcher: React.FC<{ active: boolean; onOut: (lat: number, lon: number, zoom: number) => void }> = ({ active, onOut }) => {
+  const map = useMapEvents({
+    zoomend: () => {
+      if (!active) return;
+      const z = map.getZoom();
+      if (z < ZOOM_TO_GLOBE) {
+        const c = map.getCenter();
+        onOut(c.lat, c.lng, z);
+      }
+    },
+  });
+  return null;
+};
 
 type FlyCommand =
   | { type: 'enter'; ts: number }
@@ -45,22 +81,17 @@ const FlightController: React.FC<{ command: FlyCommand | null; onArrive: () => v
     if (!command) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (command.type === 'enter') {
+      // Globe berhenti tepat di skala yang setara zoom 5 → peta langsung menyambung tanpa loncatan
       map.invalidateSize();
-      map.setView(JKT, 5, { animate: false });
-      if (reduced) {
-        map.setView(JABODETABEK_VIEW, 10, { animate: false });
-        onArrive();
-        return;
-      }
-      map.once('moveend', onArrive);
-      map.flyTo(JABODETABEK_VIEW, 10, { duration: 2.4, easeLinearity: 0.15 });
+      map.setView(INDO, INDONESIA_VIEW.zoom, { animate: false });
+      onArrive();
     } else if (command.type === 'exit') {
       if (reduced) {
         onLeft();
         return;
       }
       map.once('moveend', onLeft);
-      map.flyTo(JKT, 5, { duration: 1.1, easeLinearity: 0.3 });
+      map.flyTo(INDO, INDONESIA_VIEW.zoom, { duration: 1.1, easeLinearity: 0.3 });
     } else if (command.type === 'to') {
       map.flyTo([command.lat, command.lon], command.zoom, { duration: reduced ? 0 : 1.4 });
     } else if (command.type === 'overview') {
@@ -76,7 +107,9 @@ const FlightController: React.FC<{ command: FlyCommand | null; onArrive: () => v
 };
 
 const zoomHint = (z: number) =>
-  z < ZOOM_RS
+  z < ZOOM_INDO_MAX
+    ? 'Klik Jabodetabek (titik biru) untuk masuk · zoom keluar untuk kembali ke globe'
+    : z < ZOOM_RS
     ? 'Titik pink = RS, hijau = puskesmas · klik titik untuk detail, atau klik wilayah untuk zoom'
     : z < ZOOM_PIN
     ? 'Zoom lagi untuk penanda & nama faskes · klik titik untuk detail'
@@ -104,6 +137,17 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
   const [basemap, setBasemap] = useState<'peta' | 'satelit'>('peta');
   const [zoom, setZoom] = useState(5);
   const [scrollOn, setScrollOn] = useState(false);
+  const [indoGeo, setIndoGeo] = useState<any>(null);
+
+  // Garis batas Indonesia (Natural Earth 1:50m) untuk level peta Indonesia
+  useEffect(() => {
+    loadWorld50()
+      .then((w) => {
+        const fc = feature(w, w.objects.countries) as any;
+        setIndoGeo(fc.features.find((f: any) => String(f.id) === INDONESIA_ID) ?? null);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -151,6 +195,9 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
     setStage('map');
     setArrived(false);
     setCommand({ type: 'enter', ts: Date.now() });
+    // Pengguna sedang menjelajah peta → scroll langsung meneruskan zoom (dimatikan lagi saat kursor keluar)
+    map?.scrollWheelZoom.enable();
+    setScrollOn(true);
   };
 
   const backToGlobe = () => {
@@ -162,9 +209,32 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
     setCommand({ type: 'exit', ts: Date.now() });
   };
 
-  const onLeft = () => {
+  const onLeft = (from?: { lat: number; lon: number; zoom: number }) => {
     setStage('globe');
-    globeRef.current?.reset();
+    globeRef.current?.reset(from ?? INDONESIA_VIEW);
+  };
+
+  /** Zoom keluar di peta sampai level benua → globe mengambil alih dari posisi yang sama. */
+  const zoomOutToGlobe = (lat: number, lon: number, z: number) => {
+    if (stageRef.current !== 'map') return;
+    setArrived(false);
+    setSelected(null);
+    setMapSel(null);
+    setBasemap('peta');
+    onLeft({ lat, lon, zoom: z });
+  };
+
+  const goIndonesia = () => {
+    setSelected(null);
+    setMapSel(null);
+    setBasemap('peta');
+    setCommand({ type: 'to', ts: Date.now(), lat: INDO[0], lon: INDO[1], zoom: INDONESIA_VIEW.zoom });
+  };
+
+  const goJabodetabek = () => {
+    setSelected(null);
+    setMapSel(null);
+    setCommand({ type: 'to', ts: Date.now(), lat: JABODETABEK_VIEW[0], lon: JABODETABEK_VIEW[1], zoom: 10 });
   };
 
   const pickRegion = (r: Region) => {
@@ -185,10 +255,14 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
   const onScrollActivate = useCallback(() => setScrollOn(true), []);
 
   const mapVisible = stage === 'map' || stage === 'leaving';
-  const crumbs = [
-    { label: 'Dunia', active: stage === 'globe' || stage === 'diving' },
-    { label: 'Indonesia', active: false },
-    { label: selectedRegion ? selectedRegion.nama : 'Jabodetabek', active: mapVisible && !mapSel },
+  const indoLevel = zoom < ZOOM_INDO_MAX;
+  const crumbs: Array<{ label: string; active: boolean; go?: () => void }> = [
+    { label: 'Dunia', active: !mapVisible, go: mapVisible ? backToGlobe : undefined },
+    { label: 'Indonesia', active: mapVisible && indoLevel, go: mapVisible && !indoLevel ? goIndonesia : undefined },
+    ...(mapVisible && !indoLevel ? [{ label: 'Jabodetabek', active: !selectedRegion && !mapSel, go: selectedRegion || mapSel ? goJabodetabek : undefined }] : []),
+    ...(mapVisible && selectedRegion && !indoLevel
+      ? [{ label: selectedRegion.nama, active: !mapSel, go: mapSel ? () => pickRegion(selectedRegion) : undefined }]
+      : []),
     ...(mapSel ? [{ label: mapSel.kind === 'rs' ? mapSel.f.nama : mapSel.p.nama, active: true }] : []),
   ];
 
@@ -209,13 +283,8 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
     <div className="relative isolate h-[600px] md:h-[680px] w-full overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-b from-[#070B18] via-[#0B1226] to-[#070A14] shadow-[0_12px_48px_rgba(0,0,0,0.45)]">
       {/* Lapisan globe */}
       <div
-        className="absolute inset-0 transition-[opacity,transform,filter] duration-700 ease-out"
-        style={{
-          opacity: mapVisible ? 0 : 1,
-          transform: mapVisible ? 'scale(1.35)' : 'scale(1)',
-          filter: mapVisible ? 'blur(6px)' : 'none',
-          pointerEvents: mapVisible ? 'none' : 'auto',
-        }}
+        className="absolute inset-0 transition-opacity duration-500 ease-out"
+        style={{ opacity: mapVisible ? 0 : 1, pointerEvents: mapVisible ? 'none' : 'auto' }}
       >
         <InteractiveGlobe
           key={globeKey}
@@ -232,18 +301,15 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
 
       {/* Lapisan peta */}
       <div
-        className="absolute inset-0 transition-[opacity,transform] duration-700 ease-out"
-        style={{
-          opacity: mapVisible ? 1 : 0,
-          transform: mapVisible ? 'scale(1)' : 'scale(0.92)',
-          pointerEvents: stage === 'map' ? 'auto' : 'none',
-        }}
+        className="absolute inset-0 transition-opacity duration-500 ease-out"
+        style={{ opacity: mapVisible ? 1 : 0, pointerEvents: stage === 'map' ? 'auto' : 'none' }}
         aria-hidden={!mapVisible}
       >
         <MapContainer
           ref={setMap}
           center={JKT}
           zoom={5}
+          minZoom={3}
           maxZoom={20}
           zoomControl={false}
           scrollWheelZoom={false}
@@ -251,10 +317,34 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
           className="riak-dark-map h-full w-full bg-[#0b1226]"
         >
           <BaseLayers mode={basemap} />
-          <FlightController command={command} onArrive={() => setArrived(true)} onLeft={onLeft} />
+          <FlightController command={command} onArrive={() => setArrived(true)} onLeft={() => onLeft()} />
           <ScrollZoomOnClick onActivate={onScrollActivate} />
-          {mapVisible && <Marker position={SOETTA} icon={rippleIcon('#22e5ff', 'Soekarno-Hatta')} />}
+          <ZoomOutWatcher active={stage === 'map' && arrived} onOut={zoomOutToGlobe} />
+
+          {/* Level Indonesia: garis batas, pintu masuk, dan pintu ke Jabodetabek */}
+          {mapVisible && indoLevel && indoGeo && (
+            <GeoJSON
+              key="indo"
+              data={indoGeo}
+              interactive={false}
+              style={{ color: '#22e5ff', weight: 1.4, opacity: 0.9, fillColor: '#0e7490', fillOpacity: 0.18 }}
+            />
+          )}
+          {mapVisible &&
+            indoLevel &&
+            ENTRY_POINTS.map((e) => (
+              <Marker
+                key={e.nama}
+                position={[e.lat, e.lon]}
+                icon={rippleIcon('#f472b6', e.nama.replace('Bandara ', ''))}
+                eventHandlers={{ click: () => setCommand({ type: 'to', ts: Date.now(), lat: e.lat, lon: e.lon, zoom: 11 }) }}
+              />
+            ))}
+          {mapVisible && indoLevel && <Marker position={JKT} icon={targetIcon} zIndexOffset={1000} eventHandlers={{ click: goJabodetabek }} />}
+          {mapVisible && !indoLevel && zoom < ZOOM_RS && <Marker position={[ENTRY_POINTS[0].lat, ENTRY_POINTS[0].lon]} icon={rippleIcon('#22e5ff', 'Soekarno-Hatta')} />}
+
           {arrived &&
+            !indoLevel &&
             zoom < ZOOM_RS &&
             regions.map((r) => {
               const isSel = r.kode_bps === selected;
@@ -294,13 +384,10 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
             {i > 0 && <ChevronRight className="h-3 w-3 shrink-0 text-white/30" />}
             <button
               type="button"
-              disabled={!mapVisible || (i !== 0 && i !== 2)}
-              onClick={() => {
-                if (i === 0) backToGlobe();
-                else if (i === 2 && selectedRegion) pickRegion(selectedRegion);
-              }}
+              disabled={!c.go}
+              onClick={() => c.go?.()}
               className={`truncate rounded-full px-2 py-0.5 transition ${
-                c.active ? 'bg-cyan-400/20 text-cyan-200' : mapVisible && (i === 0 || i === 2) ? 'hover:bg-white/10 hover:text-white' : ''
+                c.active ? 'bg-cyan-400/20 text-cyan-200' : c.go ? 'hover:bg-white/10 hover:text-white' : ''
               }`}
             >
               {i === 0 && <Globe2 className="mr-1 inline h-3 w-3 -mt-0.5" />}
@@ -320,10 +407,14 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
               </div>
             </div>
           )}
-          <div className="pointer-events-none absolute left-4 top-14 z-[500] max-w-xs">
-            <h3 className="font-display text-lg md:text-xl font-bold text-white">Dari wabah global ke faskes lokal</h3>
-            <p className="mt-1 text-xs text-white/65">
-              Geser untuk memutar. Arahkan kursor ke titik untuk info. Klik <span className="text-cyan-300 font-semibold">Indonesia</span> untuk masuk ke peta.
+          <div className="pointer-events-none absolute left-4 top-14 z-[500] max-w-xs rounded-2xl border border-white/15 bg-black/40 p-3.5 shadow-lg backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 animate-ping rounded-full bg-cyan-400" />
+              <span className="font-display text-xs font-bold uppercase tracking-wider text-cyan-300">Radar Global</span>
+            </div>
+            <h3 className="mt-0.5 font-display text-lg font-bold text-white">Jalur Transmisi Wabah Luar Negeri</h3>
+            <p className="mt-0.5 text-[11px] text-white/70">
+              Geser globe untuk rotasi 360°. Klik <span className="font-semibold text-cyan-300">Indonesia</span> atau scroll untuk zoom sampai ke peta, wilayah, dan faskes.
             </p>
           </div>
 
@@ -334,13 +425,13 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
             className="absolute bottom-5 left-1/2 z-[500] -translate-x-1/2 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white shadow-[0_0_30px_rgba(34,229,255,0.35)] transition hover:scale-105 active:scale-95 disabled:opacity-70"
           >
             <ZoomIn className="h-4 w-4" />
-            {stage === 'diving' ? 'Menuju Jabodetabek…' : 'Masuk ke Peta Jabodetabek'}
+            {stage === 'diving' ? 'Menuju Indonesia…' : 'Zoom ke Indonesia'}
           </button>
 
           <div className="pointer-events-none absolute bottom-5 right-4 z-[500] hidden md:flex flex-col gap-1.5 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-[11px] text-white/70 backdrop-blur-md">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#ff4d7d]" />Acuan historis varian</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-cyan-300" />Indonesia · wilayah pantau</span>
-            <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 bg-[#ff5c9a]" />Jalur impor kasus</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#ff4d7d]" />Sinyal global (acuan historis)</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-cyan-300" />Episentrum RI · Jabodetabek</span>
+            <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 bg-[#ff5c9a]" />Alur impor</span>
           </div>
 
           {hotspot && !hotspot.isTarget && (
@@ -438,6 +529,42 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
           >
             {mapSel ? (
               <div key={selectionId(mapSel)} className="flex-1 overflow-y-auto p-4 riak-fade-up">{detail}</div>
+            ) : indoLevel ? (
+              <div className="flex-1 overflow-y-auto p-4 riak-fade-up">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Peta Indonesia</div>
+                <div className="font-display text-lg font-bold">Pilih wilayah</div>
+                <button
+                  onClick={goJabodetabek}
+                  className="mt-3 w-full rounded-xl border border-cyan-400/40 bg-cyan-400/10 p-3 text-left transition hover:bg-cyan-400/20"
+                >
+                  <div className="flex items-center gap-2 text-sm font-bold text-ink">
+                    <ShieldCheck className="h-4 w-4 text-cyan-300" /> Jabodetabek
+                    <span className="ml-auto rounded-full bg-cyan-950 px-2 py-0.5 font-mono text-[10px] text-cyan-300">SIAGA AKTIF</span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-ink-muted">
+                    13 kab/kota · {facilities.length} RS · {puskesmas.length} puskesmas
+                  </div>
+                  <div className="mt-2 text-[11px] font-semibold text-cyan-200">Masuk & zoom ke faskes →</div>
+                </button>
+
+                <div className="mt-4 text-xs font-bold text-ink">Pintu masuk prioritas</div>
+                <div className="mt-1.5 space-y-1">
+                  {ENTRY_POINTS.map((e) => (
+                    <button
+                      key={e.nama}
+                      onClick={() => setCommand({ type: 'to', ts: Date.now(), lat: e.lat, lon: e.lon, zoom: 11 })}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-ink-muted transition hover:bg-surface-2 hover:text-ink"
+                    >
+                      {e.jenis === 'udara' ? <Plane className="h-3.5 w-3.5 text-pink-300" /> : <Ship className="h-3.5 w-3.5 text-pink-300" />}
+                      <span className="flex-1 truncate">{e.nama}</span>
+                      <span className="text-[10px]">{e.provinsi}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-4 rounded-lg bg-surface-2 p-2.5 text-[11px] leading-relaxed text-ink-muted">
+                  Data faskes, kapasitas, dan BWB di prototipe ini baru tersedia untuk Jabodetabek. Wilayah lain menyusul bila datanya dimasukkan.
+                </p>
+              </div>
             ) : (
               <>
                 {selectedRegion ? (
