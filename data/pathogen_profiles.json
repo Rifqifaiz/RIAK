@@ -1,0 +1,33 @@
+{
+  "_catatan": "Setiap nilai punya 'status': BERSUMBER (ada rujukan), KALIBRASI (dihitung dari data 2021 di uji retrospektif), ASUMSI (nilai kerja, wajib ditampilkan berlabel), FIKTIF (hanya untuk Mode Latihan). Semua nilai klinis diverifikasi Alfie sebelum dipakai di demo final.",
+  "profiles": [
+    {
+      "id": "covid19-delta",
+      "nama": "COVID-19 varian Delta (acuan)",
+      "jenis": "acuan",
+      "parameter": {
+        "R": {"nilai": 5.08, "min": 3.2, "max": 8.0, "satuan": "-", "status": "BERSUMBER", "sumber": "Liu & Rocklöv (2021), J Travel Med - VERIFIKASI"},
+        "inkubasi_hari": {"nilai": 4.4, "min": 3.8, "max": 5.1, "status": "BERSUMBER", "sumber": "Wu dkk. (2022), JAMA Netw Open - VERIFIKASI"},
+        "infeksius_hari": {"nilai": 5, "min": 4, "max": 7, "status": "ASUMSI", "sumber": "Nilai kerja; Alfie verifikasi"},
+        "rasio_terkonfirmasi": {"nilai": 0.25, "min": 0.15, "max": 0.4, "status": "ASUMSI", "sumber": "Proporsi infeksi yang tercatat sebagai kasus; dikalibrasi ulang di Fase 1"},
+        "rasio_okupansi_isolasi": {"nilai": 0.262, "status": "KALIBRASI", "sumber": "Pasien isolasi / kasus 14 hari terakhir, DKI 31 Mei 2021 (uji retrospektif)"},
+        "rasio_okupansi_icu": {"nilai": 0.0436, "status": "KALIBRASI", "sumber": "Pasien ICU / kasus 14 hari terakhir, DKI 31 Mei 2021 (uji retrospektif)"},
+        "jendela_beban_hari": {"nilai": 14, "status": "ASUMSI", "sumber": "Proksi lama rawat pada uji retrospektif"},
+        "o2_lpm_berat": {"nilai": 10, "status": "BERSUMBER", "sumber": "Panduan WHO (kebutuhan oksigen pasien berat)"},
+        "o2_lpm_kritis": {"nilai": 30, "status": "BERSUMBER", "sumber": "Panduan WHO (kebutuhan oksigen pasien kritis)"}
+      },
+      "jalur_penularan": ["udara (utama)", "droplet", "kontak"],
+      "ketahanan_lingkungan": {
+        "ringkas": "Waktu paruh di permukaan >24 jam pada 10°C/40% RH, sekitar 1,5 jam pada 27°C/65% RH; perubahan stabilitas tidak menjelaskan kenaikan daya tular varian",
+        "sumber": "Morris dkk. (2021) eLife; Bushmaker dkk. (2023) Emerg Infect Dis",
+        "implikasi_persiapan": ["Ventilasi dan masker N95 diprioritaskan (penularan lewat udara)", "Disinfeksi permukaan sebagai pelengkap"]
+      },
+      "terapi_dan_alat": ["oksigen medis", "APD/N95", "antiviral & imunomodulator sesuai pedoman tata laksana", "ventilator untuk pasien kritis"]
+    }
+  ],
+  "skenario_latihan": [
+    {"id": "disease-x-ringan", "nama": "Disease X - ringan", "status": "FIKTIF", "R": 1.6, "inkubasi_hari": 5, "infeksius_hari": 6, "rasio_okupansi_isolasi": 0.15, "rasio_okupansi_icu": 0.02, "jalur": "droplet & kontak"},
+    {"id": "disease-x-sedang", "nama": "Disease X - sedang", "status": "FIKTIF", "R": 2.5, "inkubasi_hari": 4, "infeksius_hari": 6, "rasio_okupansi_isolasi": 0.25, "rasio_okupansi_icu": 0.04, "jalur": "udara"},
+    {"id": "disease-x-berat", "nama": "Disease X - berat", "status": "FIKTIF", "R": 3.5, "inkubasi_hari": 3, "infeksius_hari": 7, "rasio_okupansi_isolasi": 0.35, "rasio_okupansi_icu": 0.08, "jalur": "udara"}
+  ]
+}
