@@ -1,0 +1,158 @@
+@import './tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Concentric Ripple Animation */
+@keyframes rippleSlow {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.12;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.05;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.12;
+  }
+}
+
+.animate-ripple {
+  animation: rippleSlow 10s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ripple {
+    animation: none;
+  }
+}
+
+
+/* ---------- Penanda peta (Leaflet divIcon) ---------- */
+.riak-ping { position: relative; display: block; width: 18px; height: 18px; }
+.riak-ping i { position: absolute; inset: 5px; border-radius: 9999px; background: var(--c); box-shadow: 0 0 12px var(--c); }
+.riak-ping span { position: absolute; inset: 0; border-radius: 9999px; border: 2px solid var(--c); animation: riakPing 2.2s ease-out infinite; }
+.riak-ping span:nth-child(2) { animation-delay: 1.1s; }
+.riak-ping-label { position: absolute; left: 22px; top: -1px; white-space: nowrap; font: 700 11px/1.6 Inter, sans-serif; color: #e0f7ff; background: rgba(10,16,34,.8); padding: 0 6px; border-radius: 6px; border: 1px solid rgba(34,229,255,.35); }
+@keyframes riakPing { from { transform: scale(.6); opacity: .9; } to { transform: scale(2.8); opacity: 0; } }
+
+.riak-grow { animation: riakGrow .6s cubic-bezier(.2,.8,.2,1) both; transform-box: fill-box; transform-origin: center; }
+@keyframes riakGrow { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.riak-fade-up { animation: riakFadeUp .35s ease-out both; }
+@keyframes riakFadeUp { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Muncul saat di-scroll (lihat components/common/Reveal.tsx) */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1); }
+.reveal.is-visible { opacity: 1; transform: none; }
+
+/* Dropdown navbar */
+.dropdown-enter { animation: dropdownIn .18s ease-out both; transform-origin: top; }
+@keyframes dropdownIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* Ilustrasi beranimasi */
+.anim-spin-slow { animation: spin 6s linear infinite; transform-origin: center; transform-box: fill-box; }
+.anim-float { animation: floaty 4s ease-in-out infinite; }
+.anim-ripple-ring { animation: riakPing 3s ease-out infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .riak-ping span, .riak-grow, .riak-fade-up, .anim-spin-slow, .anim-float, .anim-ripple-ring, .dropdown-enter { animation: none !important; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+@keyframes progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Ubin OSM digelapkan agar menyatu dengan globe */
+.riak-dark-tiles { filter: invert(1) hue-rotate(200deg) brightness(0.9) contrast(0.92) saturate(0.55); }
+.riak-dark-map .leaflet-control-attribution { background: rgba(10,16,34,.7); color: rgba(255,255,255,.6); }
+.riak-dark-map .leaflet-control-attribution a { color: #7dd3fc; }
+
+/* ---------- Mode gelap: penyesuaian kontras ---------- */
+html { transition: background-color .3s ease; }
+.dark body { background-color: rgb(var(--c-page)); }
+/* Teks biru/pink brand terlalu gelap di atas latar gelap → versi lebih terang */
+.dark .text-brand-blue { color: #93B4FF; }
+.dark .text-brand-pink { color: #F472B6; }
+.dark .border-brand-blue { border-color: #5B7FE0; }
+.dark .shadow-card { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+.dark .shadow-elevated { box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5); }
+/* Grafik & SVG yang memakai warna literal */
+.dark [stroke="#1E3A8A"] { stroke: #7FA2FF; }
+.dark [fill="#1E3A8A"] { fill: #7FA2FF; }
+.dark [stroke="#E3E7EF"] { stroke: rgb(var(--c-line)); }
+.dark [stroke="#5B6475"] { stroke: #7C88A3; }
+.dark .recharts-cartesian-axis-tick-value { fill: rgb(var(--c-ink-muted)); }
+.dark .recharts-legend-item-text { color: #C9D2E6 !important; }
+/* Peta Leaflet terang → gelapkan ubin (kecuali peta beranda yang sudah gelap) */
+.dark .leaflet-container:not(.riak-dark-map) { background: #0b1226; }
+.dark .leaflet-bar a { background: rgb(var(--c-surface)); color: rgb(var(--c-ink)); border-color: rgb(var(--c-line)); }
+.dark .leaflet-tooltip { background: rgb(var(--c-surface)); color: rgb(var(--c-ink)); border-color: rgb(var(--c-line)); }
+.dark .leaflet-tooltip-top:before { border-top-color: rgb(var(--c-surface)); }
+.dark .leaflet-control-attribution { background: rgba(10,16,34,.7) !important; color: rgba(255,255,255,.6); }
+/* Kontrol form bawaan */
+.dark input, .dark select, .dark textarea { color-scheme: dark; }
+.dark [stroke="#B91C1C"] { stroke: #F87171; }
+.dark [fill="#B91C1C"] { fill: #F87171; }
+.dark [stroke="#0F766E"] { stroke: #2DD4BF; }
+.dark [stroke="#B45309"] { stroke: #FBBF24; }
+
+/* Cincin riak di panel login */
+.login-ring { animation: loginRing 5s ease-out infinite; transform: scale(.05); opacity: 0; }
+@keyframes loginRing { 0% { transform: scale(.05); opacity: .9; } 100% { transform: scale(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .login-ring { animation: none; opacity: .3; transform: scale(.6); } }
+
+/* Pita hero beranda: cahaya lembut yang memudar ke latar halaman (tanpa tepi) */
+.hero-band {
+  background:
+    radial-gradient(60% 55% at 50% 0%, rgba(30, 58, 138, 0.09), transparent 70%),
+    radial-gradient(40% 40% at 88% 18%, rgba(190, 24, 93, 0.06), transparent 70%);
+}
+.dark .hero-band {
+  background:
+    radial-gradient(70% 60% at 50% 0%, rgba(59, 130, 246, 0.2), transparent 72%),
+    radial-gradient(45% 45% at 88% 22%, rgba(190, 24, 93, 0.16), transparent 70%);
+}
+
+/* ---------- Penanda faskes (zoom dekat) ---------- */
+.fac-pin { position: relative; width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,.45); transition: transform .2s ease; cursor: pointer; }
+.fac-pin span { transform: rotate(45deg); font: 800 12px/1 Inter, sans-serif; color: #fff; }
+.fac-rs { background: #db2777; }
+.fac-pkm { background: #059669; }
+.fac-pin:hover { transform: rotate(-45deg) scale(1.15); }
+.fac-pin.is-selected { transform: rotate(-45deg) scale(1.3); box-shadow: 0 0 0 4px rgba(255,255,255,.35), 0 6px 18px rgba(0,0,0,.5); }
+.fac-label { position: absolute; left: 30px; top: 0; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; font: 700 11px/1.7 Inter, sans-serif; color: #fff; background: rgba(10,16,34,.82); padding: 0 7px; border-radius: 6px; border: 1px solid rgba(255,255,255,.15); pointer-events: none; }
+
+/* ---------- Mode gelap: kenyamanan mata ---------- */
+/* Teks sekunder yang diberi opasitas (text-ink-muted/70 dst.) jadi terlalu samar → pakai warna penuh */
+.dark [class*="text-ink-muted/"] { color: rgb(var(--c-ink-muted)); }
+.dark .text-ink\/80, .dark .text-ink\/70 { color: rgb(var(--c-ink)); }
+/* Tombol biru brand terlalu redup di atas navy → sedikit lebih terang, teks putih tetap kontras */
+.dark .bg-brand-blue { background-color: #3452BE; }
+.dark .hover\:bg-brand-blue\/90:hover { background-color: #3B5DD2; }
+.dark .accent-brand-blue { accent-color: #7FA2FF; }
+/* Placeholder input */
+.dark input::placeholder, .dark textarea::placeholder { color: rgb(var(--c-ink-muted) / 0.75); }
+/* Tooltip grafik Recharts bawaan (putih) → ikut tema */
+.dark .recharts-default-tooltip { background-color: rgb(var(--c-surface)) !important; border-color: rgb(var(--c-line)) !important; color: rgb(var(--c-ink)); }
+/* Garis grafik tidak terlalu terang */
+.dark .recharts-cartesian-grid line { stroke: rgb(var(--c-line)); }
+
+/* ---------- Slider (input range) ikut tema, tanpa track putih ---------- */
+input[type='range'] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 9999px; background: rgb(var(--c-line)); outline: none; }
+input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 9999px; background: #1E3A8A; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); cursor: pointer; }
+input[type='range']::-moz-range-thumb { width: 14px; height: 14px; border-radius: 9999px; background: #1E3A8A; border: 2px solid #fff; cursor: pointer; }
+input[type='range']::-moz-range-progress { background: #1E3A8A; height: 6px; border-radius: 9999px; }
+.dark input[type='range'] { background: rgb(var(--c-surface-2)); box-shadow: inset 0 0 0 1px rgb(var(--c-line)); }
+.dark input[type='range']::-webkit-slider-thumb { background: #7FA2FF; border-color: rgb(var(--c-surface)); }
+.dark input[type='range']::-moz-range-thumb { background: #7FA2FF; border-color: rgb(var(--c-surface)); }
+.dark input[type='range']::-moz-range-progress { background: #7FA2FF; }
+input[type='range']:focus-visible { box-shadow: 0 0 0 3px rgba(127, 162, 255, .35); }

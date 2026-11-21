@@ -1,0 +1,14 @@
+kode,nama,provinsi,penduduk,luas_km2,lat,lon,n_rs,catatan
+3171,Jakarta Selatan,DKI Jakarta,,,-6.26339,106.80744,50,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3172,Jakarta Timur,DKI Jakarta,,,-6.24707,106.8886,48,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3173,Jakarta Pusat,DKI Jakarta,,,-6.18473,106.84142,36,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3174,Jakarta Barat,DKI Jakarta,,,-6.17233,106.76852,28,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3175,Jakarta Utara,DKI Jakarta,,,-6.12905,106.86803,28,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3201,Kabupaten Bogor,Jawa Barat,,,-6.48978,106.85106,28,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3216,Kabupaten Bekasi,Jawa Barat,,,-6.26845,107.07225,68,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3271,Kota Bogor,Jawa Barat,,,-6.58561,106.79736,29,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3275,Kota Bekasi,Jawa Barat,,,-6.27445,106.98807,28,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3276,Kota Depok,Jawa Barat,,,-6.3824,106.82288,24,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3603,Kabupaten Tangerang,Banten,,,-5.31101,98.94706,28,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3671,Kota Tangerang,Banten,,,-5.84525,100.55506,35,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS
+3674,Kota Tangerang Selatan,Banten,,,-5.77372,103.33364,31,ISI penduduk & luas_km2 dari BPS (Dalam Angka terbaru); lat/lon = rata-rata lokasi RS

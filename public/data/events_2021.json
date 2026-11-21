@@ -1,0 +1,14 @@
+[
+  {"tanggal": "2021-04-04", "jenis": "sinyal_luar", "teks": "WHO menetapkan Delta sebagai varian yang diwaspadai (VOI)"},
+  {"tanggal": "2021-05-03", "jenis": "sinyal_luar", "teks": "Varian Delta terdeteksi di Indonesia"},
+  {"tanggal": "2021-05-09", "jenis": "sinyal_luar", "teks": "India mencapai puncak sekitar 391 ribu kasus harian"},
+  {"tanggal": "2021-05-11", "jenis": "sinyal_luar", "teks": "WHO menetapkan Delta sebagai varian yang dikhawatirkan (VOC)"},
+  {"tanggal": "2021-05-31", "jenis": "lokal", "teks": "ICU RS rujukan DKI terisi 36% (362/1.014); isolasi 33% (2.176/6.621)"},
+  {"tanggal": "2021-06-10", "jenis": "riak", "teks": "Data cukup untuk proyeksi RIAK (tanggal data terakhir uji retrospektif)"},
+  {"tanggal": "2021-06-16", "jenis": "krisis", "teks": "Isolasi melewati kapasitas akhir Mei (interpolasi)"},
+  {"tanggal": "2021-06-21", "jenis": "krisis", "teks": "ICU melewati kapasitas akhir Mei (interpolasi)"},
+  {"tanggal": "2021-07-03", "jenis": "krisis", "teks": "3-4 Juli: 63 pasien COVID-19 meninggal di RSUP Dr. Sardjito saat oksigen menipis"},
+  {"tanggal": "2021-07-04", "jenis": "keputusan", "teks": "Pemprov DKI membuka Posko Oxygen Rescue di Monas"},
+  {"tanggal": "2021-07-05", "jenis": "keputusan", "teks": "Konversi Asrama Haji Pondok Gede menjadi RS darurat dimulai"},
+  {"tanggal": "2021-07-10", "jenis": "keputusan", "teks": "RS darurat Asrama Haji beroperasi"}
+]

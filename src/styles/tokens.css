@@ -1,0 +1,69 @@
+/*
+ * Token warna dalam kanal RGB agar Tailwind bisa memakai opasitas (bg-surface/80).
+ * Mode terang = :root, mode gelap (utama) = .dark pada <html>.
+ */
+:root {
+  /* Brand (tetap di kedua mode) */
+  --brand-blue: #1E3A8A;
+  --brand-pink: #BE185D;
+  --brand-gradient: linear-gradient(135deg, #1E3A8A 0%, #5B2C7A 50%, #BE185D 100%);
+
+  --c-brand-blue-50: 238 242 251;
+  --c-brand-blue-100: 220 228 245;
+  --c-brand-pink-50: 252 238 244;
+  --c-brand-pink-100: 249 217 231;
+
+  /* Netral */
+  --c-ink: 20 33 61;
+  --c-ink-muted: 91 100 117;
+  --c-line: 227 231 239;
+  --c-surface: 255 255 255;
+  --c-surface-2: 250 251 254;
+  --c-page: 250 251 254;
+
+  /* Status BWB (fungsional, BUKAN warna brand) */
+  --c-aman: 15 118 110;     --c-aman-bg: 230 244 241;
+  --c-siaga: 180 83 9;      --c-siaga-bg: 254 243 199;
+  --c-terlewat: 185 28 28;  --c-terlewat-bg: 254 226 226;
+
+  /* Label transparansi */
+  --c-lbl-bersumber: 30 58 138;
+  --c-lbl-kalibrasi: 15 118 110;
+  --c-lbl-asumsi: 180 83 9;
+  --c-lbl-ilustrasi: 124 58 237;
+  --c-lbl-fiktif: 91 100 117;
+
+  color-scheme: light;
+}
+
+.dark {
+  /*
+   * Palet gelap yang nyaman di mata:
+   * - latar halaman tidak hitam pekat (mengurangi silau kontras),
+   * - kartu sedikit lebih terang dari latar, kotak di dalam kartu (surface-2) lebih terang lagi,
+   * - teks putih keabuan (bukan #FFF murni) dan teks sekunder tetap terbaca (kontras ≥ 7:1).
+   */
+  --c-page: 11 16 30;          /* #0B101E */
+  --c-surface: 20 27 46;       /* #141B2E kartu */
+  --c-surface-2: 28 37 62;     /* #1C253E kotak di dalam kartu, input */
+  --c-line: 46 58 90;          /* #2E3A5A */
+  --c-ink: 230 235 245;        /* #E6EBF5 */
+  --c-ink-muted: 172 182 204;  /* #ACB6CC */
+
+  --c-brand-blue-50: 34 50 100;
+  --c-brand-blue-100: 44 64 124;
+  --c-brand-pink-50: 70 26 56;
+  --c-brand-pink-100: 92 32 72;
+
+  --c-aman: 52 211 186;     --c-aman-bg: 17 58 56;
+  --c-siaga: 251 191 36;    --c-siaga-bg: 66 49 14;
+  --c-terlewat: 252 129 129; --c-terlewat-bg: 78 28 34;
+
+  --c-lbl-bersumber: 147 168 255;
+  --c-lbl-kalibrasi: 52 211 186;
+  --c-lbl-asumsi: 251 191 36;
+  --c-lbl-ilustrasi: 177 151 252;
+  --c-lbl-fiktif: 172 182 204;
+
+  color-scheme: dark;
+}

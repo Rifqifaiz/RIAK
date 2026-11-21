@@ -1,0 +1,10 @@
+sumber_daya,persiapan,lt_min_hari,lt_max_hari,dasar,label
+tt_isolasi,Tempat tidur isolasi di RS darurat,5,11,"Asrama Haji Pondok Gede 2021: konversi 5 Jul, operasi 10 Jul, gedung terakhir ~16 Jul (Kemenkes; Setkab; Kumparan)",BERSUMBER
+o2,Tabung oksigen dari pemasok internasional,28,42,WHO AFRO COVID-19 SPRP 2021 Progress Report,BERSUMBER
+o2,Pengadaan massal tabung oksigen,40,40,WHO AFRO COVID-19 SPRP 2021 Progress Report,BERSUMBER
+o2,Instalasi pembangkit oksigen (PSA) di RS,84,84,Associated Press 2021,BERSUMBER
+tt_icu,Tempat tidur ICU tambahan,14,30,Kebutuhan alat dan tenaga terlatih,ASUMSI
+o2,Konsentrator oksigen,7,21,Impor lewat udara,ASUMSI
+apd,APD / N95,14,42,-,ASUMSI
+obat,Antiviral impor,14,56,-,ASUMSI
+nakes,Mobilisasi tenaga kesehatan,7,14,-,ASUMSI
