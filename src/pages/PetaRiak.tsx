@@ -188,7 +188,7 @@ export const PetaRiak: React.FC = () => {
                   pathOptions={{
                     color: isSelected ? '#BE185D' : '#1E3A8A',
                     fillColor: casesCount > 3000 ? '#BE185D' : casesCount > 1000 ? '#B45309' : '#1E3A8A',
-                    fillOpacity: 0.65,
+                    fillOpacity: 0.4,
                     weight: isSelected ? 3 : 1.5,
                   }}
                   eventHandlers={{
@@ -231,11 +231,11 @@ export const PetaRiak: React.FC = () => {
           <div className="absolute bottom-3 left-3 z-[1000] max-w-[80%] rounded-xl bg-surface/90 backdrop-blur p-2.5 text-[11px] text-ink-muted border border-line shadow-sm pointer-events-none">
             {zoom < ZOOM_RS ? (
               <>
-                <span className="font-semibold text-ink">Tip:</span> klik wilayah atau zoom in (klik peta lalu scroll) untuk melihat RS & puskesmas.
+                <span className="inline-block h-2 w-2 rounded-full bg-[#f472b6]" /> RS · <span className="inline-block h-2 w-2 rounded-full bg-[#34d399]" /> Puskesmas — klik titik untuk detail, atau klik wilayah untuk zoom.
               </>
             ) : (
               <>
-                <span className="inline-block h-2 w-2 rounded-full bg-[#f472b6]" /> RS · <span className="inline-block h-2 w-2 rounded-full bg-[#34d399]" /> Puskesmas (zoom ≥ 13) · klik penanda untuk detail
+                <span className="inline-block h-2 w-2 rounded-full bg-[#f472b6]" /> RS · <span className="inline-block h-2 w-2 rounded-full bg-[#34d399]" /> Puskesmas · klik penanda untuk detail
               </>
             )}
           </div>

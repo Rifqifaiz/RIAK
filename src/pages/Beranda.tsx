@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SectionTag, StatTile } from '../components/common/CommonUi';
 import { Angka } from '../components/common/Angka';
-import { GlobeToMap } from '../components/interactive/GlobeToMap';
+import { InteractiveGlobe } from '../components/interactive/InteractiveGlobe';
 import { Reveal, TiltCard } from '../components/common/Reveal';
 import {
   IlluRadar, IlluPeta, IlluRespons, IlluLatihan, IlluSimulator, IlluStudiKasus, IlluMetodologi,
@@ -13,6 +13,8 @@ import {
 
 interface BerandaProps {
   onReplaySplash?: () => void;
+  /** true selama animasi pembuka diputar → globe menunda pekerjaan berat */
+  introPlaying?: boolean;
 }
 
 const STEPS = [
@@ -71,7 +73,7 @@ const PRINSIP = [
   { icon: FileCheck2, label: 'Setiap angka bersumber' },
 ];
 
-export const Beranda: React.FC<BerandaProps> = ({ onReplaySplash }) => {
+export const Beranda: React.FC<BerandaProps> = ({ onReplaySplash, introPlaying = false }) => {
   const [step, setStep] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
 
@@ -134,8 +136,8 @@ export const Beranda: React.FC<BerandaProps> = ({ onReplaySplash }) => {
           </div>
         </div>
 
-        <div className="relative mx-auto mt-10 max-w-[1240px]">
-          <GlobeToMap />
+        <div className="relative mx-auto mt-8 max-w-[1240px] w-full">
+          <InteractiveGlobe />
           <p className="mt-3 text-center text-xs text-ink-muted dark:text-white/50">Tim Universitas Indonesia · 2026</p>
         </div>
       </section>

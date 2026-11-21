@@ -29,6 +29,17 @@ export function aerialImageUrl(lat: number, lon: number, w = 640, h = 360, halfW
 
 export const ESRI_ATTRIBUTION = 'Citra: Esri, Maxar, Earthstar Geographics, GIS User Community';
 
+/**
+ * URL embed resmi Google Maps (iframe, tanpa API key).
+ * Street View memakai panorama terdekat dari titik; bila tidak ada, Google menampilkan pesan di dalam bingkai.
+ */
+export function googleEmbeds(lat: number, lon: number) {
+  return {
+    streetView: `https://maps.google.com/maps?layer=c&cbll=${lat},${lon}&cbp=11,0,0,0,0&output=svembed`,
+    satelit: `https://maps.google.com/maps?q=${lat},${lon}&t=k&z=19&output=embed`,
+  };
+}
+
 export function googleLinks(lat: number, lon: number, nama: string) {
   const ll = `${lat},${lon}`;
   return {

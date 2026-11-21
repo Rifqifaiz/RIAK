@@ -6,18 +6,23 @@ interface WaterDropSplashProps {
   greeting?: string;
   /** Bila diisi, lanjut otomatis sekian ms setelah logo tampil. */
   autoCloseMs?: number;
+  /** Dipanggil saat mulai memudar keluar (fade dikerjakan compositor, jadi aman untuk mulai memuat halaman). */
+  onLeaving?: () => void;
 }
 
-export const WaterDropSplash: React.FC<WaterDropSplashProps> = ({ onComplete, greeting, autoCloseMs }) => {
+export const WaterDropSplash: React.FC<WaterDropSplashProps> = ({ onComplete, greeting, autoCloseMs, onLeaving }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [stage, setStage] = useState<'falling' | 'impact' | 'revealed'>('falling');
   const [leaving, setLeaving] = useState(false);
   const doneRef = useRef(onComplete);
   doneRef.current = onComplete;
+  const leavingRef = useRef(onLeaving);
+  leavingRef.current = onLeaving;
 
   const close = () => {
     if (leaving) return;
     setLeaving(true);
+    leavingRef.current?.();
     window.setTimeout(() => doneRef.current(), 650);
   };
 
@@ -30,162 +35,160 @@ export const WaterDropSplash: React.FC<WaterDropSplashProps> = ({ onComplete, gr
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const ctx = canvas?.getContext('2d', { alpha: false });
+    if (!canvas || !ctx) return;
 
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+    // Kanvas tajam di layar retina, tapi dibatasi 2x agar tetap ringan
+    let width = 0;
+    let height = 0;
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-    window.addEventListener('resize', handleResize);
+    resize();
+    window.addEventListener('resize', resize);
 
-    // Drop properties
-    let dropY = -20;
-    let dropSpeed = 16;
-    const dropX = width / 2;
-    const impactY = height / 2;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Rings properties
-    interface Ring {
-      r: number;
-      maxR: number;
-      opacity: number;
-      speed: number;
-      color: string;
-    }
-    const rings: Ring[] = [];
+    // Linimasa (ms). Semua gerak berbasis waktu → mulus di 60/120 Hz, tidak tergantung FPS.
+    const T_FALL = reduced ? 0 : 750;
+    const RING_GAP = 280;
+    const RING_DUR = 2800;
+    const RINGS = 5;
+    const T_REVEAL = T_FALL + 700;
+    const T_END = T_FALL + RING_GAP * (RINGS - 1) + RING_DUR;
 
-    // Particles properties
-    interface Particle {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      r: number;
-      opacity: number;
-      color: string;
-    }
-    const particles: Particle[] = [];
+    const easeIn = (t: number) => t * t * t;
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
-    let hasImpacted = false;
-    let animId: number;
+    // Partikel percikan: dibuat sekali, posisi dihitung analitik dari waktu (tanpa akumulasi galat)
+    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+    const particles = Array.from({ length: 26 }, () => {
+      const ang = rnd(Math.PI * 1.05, Math.PI * 1.95); // kebanyakan ke atas
+      const spd = rnd(160, 420); // px/detik
+      return {
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd,
+        r: rnd(1.4, 3.2),
+        life: rnd(0.7, 1.2),
+        pink: Math.random() < 0.35,
+      };
+    });
 
-    const render = () => {
-      ctx.fillStyle = 'rgba(10, 14, 26, 0.25)';
+    let t0 = 0;
+    let animId = 0;
+    let impacted = false;
+    let revealed = false;
+
+    const ring = (cx: number, cy: number, r: number, a: number, rgb: string) => {
+      if (a <= 0.01 || r <= 0) return;
+      // "glow" murah: garis lebar transparan + garis tipis terang (pengganti shadowBlur yang berat)
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${rgb}, ${a * 0.18})`;
+      ctx.lineWidth = 10;
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(${rgb}, ${a})`;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    };
+
+    let warm = 0;
+    const frame = (now: number) => {
+      // Dua frame pertama = pemanasan (alokasi kanvas, font). Linimasa baru mulai setelahnya
+      // agar tetes tidak "meloncat" bila frame awal lambat.
+      if (warm < 2) {
+        warm += 1;
+        t0 = now;
+      }
+      const t = now - t0;
+      const cx = width / 2;
+      const cy = height / 2;
+      const maxR = Math.hypot(width, height) * 0.62;
+
+      ctx.fillStyle = '#070A13';
       ctx.fillRect(0, 0, width, height);
 
-      // Phase 1: Droplet falling
-      if (!hasImpacted) {
-        dropY += dropSpeed;
-        dropSpeed += 0.9; // acceleration
-
-        // Draw falling droplet with tail
-        const gradient = ctx.createLinearGradient(dropX, dropY - 30, dropX, dropY);
-        gradient.addColorStop(0, 'rgba(0, 242, 254, 0)');
-        gradient.addColorStop(1, 'rgba(0, 242, 254, 0.95)');
-
+      if (t < T_FALL) {
+        // Tetes jatuh dengan percepatan
+        const p = easeIn(t / T_FALL);
+        const y = -30 + (cy + 30) * p;
+        const tail = 14 + 40 * p;
+        const g = ctx.createLinearGradient(cx, y - tail, cx, y);
+        g.addColorStop(0, 'rgba(34, 229, 255, 0)');
+        g.addColorStop(1, 'rgba(34, 229, 255, 0.9)');
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(dropX, dropY, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#00F2FE';
-        ctx.shadowColor = '#00F2FE';
-        ctx.shadowBlur = 20;
+        ctx.moveTo(cx - 3.5, y);
+        ctx.quadraticCurveTo(cx, y - tail, cx + 3.5, y);
         ctx.fill();
-
+        const glow = ctx.createRadialGradient(cx, y, 0, cx, y, 16);
+        glow.addColorStop(0, 'rgba(34, 229, 255, 0.55)');
+        glow.addColorStop(1, 'rgba(34, 229, 255, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(cx - 16, y - 16, 32, 32);
+        ctx.fillStyle = '#C9F8FF';
         ctx.beginPath();
-        ctx.moveTo(dropX - 4, dropY);
-        ctx.lineTo(dropX, dropY - 35);
-        ctx.lineTo(dropX + 4, dropY);
-        ctx.fillStyle = gradient;
+        ctx.arc(cx, y, 4.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
-
-        if (dropY >= impactY) {
-          hasImpacted = true;
+      } else {
+        if (!impacted) {
+          impacted = true;
           setStage('impact');
+        }
+        const ti = t - T_FALL;
 
-          // Spawn ripple rings
-          for (let i = 0; i < 6; i++) {
-            rings.push({
-              r: 5,
-              maxR: Math.max(width, height) * 0.75 + i * 80,
-              opacity: 0.9,
-              speed: 4.5 + i * 1.5,
-              color: i % 2 === 0 ? '#00F2FE' : '#BE185D',
-            });
-          }
+        // Kilatan lembut di titik jatuh
+        const flash = Math.max(0, 1 - ti / 900);
+        if (flash > 0) {
+          const fg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 140);
+          fg.addColorStop(0, `rgba(34, 229, 255, ${0.35 * flash})`);
+          fg.addColorStop(1, 'rgba(34, 229, 255, 0)');
+          ctx.fillStyle = fg;
+          ctx.fillRect(cx - 140, cy - 140, 280, 280);
+        }
 
-          // Spawn splash particles
-          for (let i = 0; i < 35; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const spd = 3 + Math.random() * 8;
-            particles.push({
-              x: dropX,
-              y: impactY,
-              vx: Math.cos(angle) * spd,
-              vy: Math.sin(angle) * spd - (Math.random() * 6 + 2),
-              r: Math.random() * 3.5 + 1.5,
-              opacity: 1,
-              color: Math.random() > 0.4 ? '#00F2FE' : '#BE185D',
-            });
-          }
+        // Cincin riak bergiliran
+        for (let i = 0; i < RINGS; i++) {
+          const local = ti - i * RING_GAP;
+          if (local <= 0 || local >= RING_DUR) continue;
+          const p = local / RING_DUR;
+          const r = 6 + easeOut(p) * maxR;
+          const a = Math.pow(1 - p, 1.6) * 0.85;
+          ring(cx, cy, r, a, i % 2 === 0 ? '34, 229, 255' : '236, 72, 153');
+        }
 
-          setTimeout(() => {
-            setStage('revealed');
-          }, 1400);
+        // Percikan (gerak parabola)
+        const s = ti / 1000;
+        for (const pt of particles) {
+          const life = 1 - s / pt.life;
+          if (life <= 0) continue;
+          const x = cx + pt.vx * s;
+          const y = cy + pt.vy * s + 0.5 * 900 * s * s;
+          ctx.fillStyle = pt.pink ? `rgba(236, 72, 153, ${life})` : `rgba(165, 243, 252, ${life})`;
+          ctx.beginPath();
+          ctx.arc(x, y, pt.r * (0.6 + 0.4 * life), 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (!revealed && t >= T_REVEAL) {
+          revealed = true;
+          setStage('revealed');
         }
       }
 
-      // Phase 2: Ripple rings expanding
-      if (hasImpacted) {
-        rings.forEach((ring) => {
-          ring.r += ring.speed;
-          ring.opacity -= 0.007;
-
-          if (ring.opacity > 0) {
-            ctx.beginPath();
-            ctx.arc(dropX, impactY, ring.r, 0, Math.PI * 2);
-            ctx.strokeStyle = ring.color;
-            ctx.lineWidth = Math.max(1, 4 * ring.opacity);
-            ctx.shadowColor = ring.color;
-            ctx.shadowBlur = 15;
-            ctx.globalAlpha = Math.max(0, ring.opacity);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-            ctx.shadowBlur = 0;
-          }
-        });
-
-        // Splash particles
-        particles.forEach((p) => {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.vy += 0.25; // gravity
-          p.opacity -= 0.015;
-
-          if (p.opacity > 0) {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = p.color;
-            ctx.globalAlpha = Math.max(0, p.opacity);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-          }
-        });
-      }
-
-      animId = requestAnimationFrame(render);
+      // Selesai: berhenti menggambar agar CPU/GPU bebas
+      if (t < T_END) animId = requestAnimationFrame(frame);
     };
-
-    animId = requestAnimationFrame(render);
+    animId = requestAnimationFrame(frame);
 
     return () => {
       cancelAnimationFrame(animId);
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', resize);
     };
   }, []);
 

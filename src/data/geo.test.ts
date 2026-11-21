@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeRegions, withRobustCentroids, isValidJabodetabekCoord, haversineKm } from './geo';
+import { normalizeRegions, withRobustCentroids, isValidJabodetabekCoord, haversineKm, uniqueFacilities } from './geo';
 import { Facility } from '../types';
 
 const fac = (kode_wilayah: string, lat: number, lon: number): Facility =>
@@ -37,5 +37,12 @@ describe('haversineKm', () => {
   it('Monas ke Bundaran HI ≈ 2 km', () => {
     expect(haversineKm(-6.1754, 106.8272, -6.1949, 106.823)).toBeGreaterThan(2);
     expect(haversineKm(-6.1754, 106.8272, -6.1949, 106.823)).toBeLessThan(2.4);
+  });
+});
+
+describe('uniqueFacilities', () => {
+  it('membuang baris identik, mempertahankan kode sama di lokasi berbeda', () => {
+    const a = { kode_rs: '1', lat: -6.2, lon: 106.8 };
+    expect(uniqueFacilities([a, { ...a }, { ...a, lat: -6.3 }])).toHaveLength(2);
   });
 });

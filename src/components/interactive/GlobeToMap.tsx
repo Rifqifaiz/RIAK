@@ -77,17 +77,20 @@ const FlightController: React.FC<{ command: FlyCommand | null; onArrive: () => v
 
 const zoomHint = (z: number) =>
   z < ZOOM_RS
-    ? 'Zoom in (klik wilayah) untuk melihat rumah sakit'
-    : z < ZOOM_PKM
-    ? 'Zoom lagi untuk melihat puskesmas'
+    ? 'Titik pink = RS, hijau = puskesmas · klik titik untuk detail, atau klik wilayah untuk zoom'
     : z < ZOOM_PIN
-    ? 'Zoom lagi untuk melihat penanda & nama faskes'
-    : 'Klik penanda H (RS) atau + (puskesmas) untuk detail';
+    ? 'Zoom lagi untuk penanda & nama faskes · klik titik untuk detail'
+    : 'Klik penanda H (RS) atau + (puskesmas) untuk foto, Street View & data';
 
-export const GlobeToMap: React.FC = () => {
+export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying = false }) => {
   const globeRef = useRef<InteractiveGlobeHandle>(null);
+  const [globeKey, setGlobeKey] = useState(0);
+  const [globeOk, setGlobeOk] = useState(true);
+  const diveTimer = useRef<number>();
   const [map, setMap] = useState<L.Map | null>(null);
   const [stage, setStage] = useState<Stage>('globe');
+  const stageRef = useRef<Stage>('globe');
+  stageRef.current = stage;
   const [command, setCommand] = useState<FlyCommand | null>(null);
   const [arrived, setArrived] = useState(false);
   const [hotspot, setHotspot] = useState<GlobeHotspot | null>(null);
@@ -132,10 +135,19 @@ export const GlobeToMap: React.FC = () => {
 
   const enterMap = () => {
     setHotspot(null);
+    if (!globeOk) {
+      onDiveComplete();
+      return;
+    }
     globeRef.current?.dive();
+    // Pengaman: bila animasi globe tidak selesai (GPU sibuk), tetap buka peta
+    window.clearTimeout(diveTimer.current);
+    diveTimer.current = window.setTimeout(onDiveComplete, 3200);
   };
 
   const onDiveComplete = () => {
+    window.clearTimeout(diveTimer.current);
+    if (stageRef.current === 'map') return;
     setStage('map');
     setArrived(false);
     setCommand({ type: 'enter', ts: Date.now() });
@@ -206,7 +218,11 @@ export const GlobeToMap: React.FC = () => {
         }}
       >
         <InteractiveGlobe
+          key={globeKey}
           ref={globeRef}
+          deferBuild={introPlaying}
+          onUnavailable={() => setGlobeOk(false)}
+          onContextLost={() => window.setTimeout(() => setGlobeKey((k) => k + 1), 300)}
           paused={mapVisible}
           onDiveStart={() => setStage('diving')}
           onDiveComplete={onDiveComplete}
@@ -251,7 +267,8 @@ export const GlobeToMap: React.FC = () => {
                     color: isSel ? '#ffffff' : '#7dd3fc',
                     weight: isSel ? 3 : 1.5,
                     fillColor: isSel ? '#BE185D' : '#3B82F6',
-                    fillOpacity: isSel ? 0.75 : 0.45,
+                    fillOpacity: isSel ? 0.3 : 0.14,
+                    opacity: 0.8,
                   }}
                   eventHandlers={{ click: () => pickRegion(r) }}
                 >
@@ -296,6 +313,13 @@ export const GlobeToMap: React.FC = () => {
       {/* Kontrol mode globe */}
       {!mapVisible && (
         <>
+          {!globeOk && (
+            <div className="absolute inset-0 z-[400] flex items-center justify-center">
+              <div className="max-w-sm rounded-2xl border border-white/10 bg-black/50 p-5 text-center text-sm text-white/80 backdrop-blur">
+                Globe 3D tidak dapat ditampilkan di browser ini (WebGL nonaktif). Peta Jabodetabek tetap bisa dibuka.
+              </div>
+            </div>
+          )}
           <div className="pointer-events-none absolute left-4 top-14 z-[500] max-w-xs">
             <h3 className="font-display text-lg md:text-xl font-bold text-white">Dari wabah global ke faskes lokal</h3>
             <p className="mt-1 text-xs text-white/65">
@@ -388,11 +412,11 @@ export const GlobeToMap: React.FC = () => {
           )}
 
           {/* Legenda faskes */}
-          {arrived && zoom >= ZOOM_RS && (
+          {arrived && (
             <div className="pointer-events-none absolute bottom-16 left-4 z-[500] flex flex-col gap-1 rounded-xl border border-white/10 bg-black/55 px-3 py-2 text-[11px] text-white/75 backdrop-blur-md">
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border border-white bg-[#f472b6]" />Rumah sakit ({facilities.length})</span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full border border-white bg-[#34d399]" />Puskesmas ({puskesmas.length}){zoom < ZOOM_PKM ? ' · zoom lagi' : ''}
+                <span className="h-2.5 w-2.5 rounded-full border border-white bg-[#34d399]" />Puskesmas ({puskesmas.length})
               </span>
             </div>
           )}

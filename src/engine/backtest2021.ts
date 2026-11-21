@@ -55,110 +55,213 @@ function addDays(dStr: string, days: number): string {
   return formatDate(d);
 }
 
+// ---------------------------------------------------------------------------
+// Inti model (dipakai bersama oleh runBacktest dan simulasi harian)
+// ---------------------------------------------------------------------------
+
+type Speed = 'lambat' | 'tengah' | 'cepat';
+const SPEEDS: Array<{ name: Speed; pow: number }> = [
+  { name: 'lambat', pow: 0.85 },
+  { name: 'tengah', pow: 1 },
+  { name: 'cepat', pow: 1.15 },
+];
+
+function makeCaseMap(cases: DailyCaseRow[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const c of [...cases].sort((a, b) => a.tanggal.localeCompare(b.tanggal))) m.set(c.tanggal, c.kasus);
+  return m;
+}
+
+function k7(map: Map<string, number>, d: string): number {
+  let sum = 0;
+  for (let i = 0; i < 7; i++) sum += map.get(addDays(d, -i)) ?? 0;
+  return sum / 7;
+}
+
+function l14(map: Map<string, number>, d: string): number {
+  let sum = 0;
+  for (let i = 0; i < 14; i++) sum += map.get(addDays(d, -i)) ?? 0;
+  return sum;
+}
+
+export function calibrate(cases: DailyCaseRow[]) {
+  const map = makeCaseMap(cases);
+  const load31Mei = l14(map, '2021-05-31');
+  return {
+    map,
+    load31Mei,
+    kI: OBS_2021['2021-05-31'].isolasi / load31Mei,
+    kC: OBS_2021['2021-05-31'].icu / load31Mei,
+  };
+}
+
+interface CoreResult {
+  g: number;
+  waktuGandakan: number; // Infinity bila kasus tidak naik
+  sims: Record<Speed, Map<string, number>>;
+  icu: Record<Speed, string>;
+  iso: Record<Speed, string>;
+}
+
+/** SPEC §9.2 langkah 3–5 untuk satu tanggal data terakhir. */
+function cutoffCore(map: Map<string, number>, kI: number, kC: number, cutoff: string, horizon = 60): CoreResult {
+  const k7c = k7(map, cutoff);
+  const k7p = k7(map, addDays(cutoff, -7));
+  const g = k7p > 0 ? Math.pow(k7c / k7p, 1 / 7) : 1;
+  const waktuGandakan = g > 1 ? Math.log(2) / Math.log(g) : Infinity;
+
+  const sims = {} as Record<Speed, Map<string, number>>;
+  const icu = {} as Record<Speed, string>;
+  const iso = {} as Record<Speed, string>;
+  for (const { name, pow } of SPEEDS) {
+    const rate = Math.pow(g, pow);
+    const sim = new Map<string, number>(map);
+    for (let h = 1; h <= horizon; h++) sim.set(addDays(cutoff, h), k7c * Math.pow(rate, h));
+    sims[name] = sim;
+    let dIcu = '';
+    let dIso = '';
+    for (let h = 1; h <= 60; h++) {
+      const d = addDays(cutoff, h);
+      const L = l14(sim, d);
+      if (!dIso && L * kI > CAP_31_MEI.isolasi) dIso = d;
+      if (!dIcu && L * kC > CAP_31_MEI.icu) dIcu = d;
+      if (dIcu && dIso) break;
+    }
+    icu[name] = dIcu;
+    iso[name] = dIso;
+  }
+  return { g, waktuGandakan, sims, icu, iso };
+}
+
 export function runBacktest(cases: DailyCaseRow[]): {
   kI: number;
   kC: number;
   load31Mei: number;
   results: Record<string, CutoffResult>;
 } {
-  // Sort cases chronologically
-  const sorted = [...cases].sort((a, b) => a.tanggal.localeCompare(b.tanggal));
-  const caseMap = new Map<string, number>();
-  for (const c of sorted) {
-    caseMap.set(c.tanggal, c.kasus);
-  }
-
-  // Helper for rolling mean of 7 days up to date d (inclusive: d-6..d)
-  function getK7(dStr: string): number {
-    let sum = 0;
-    for (let i = 0; i < 7; i++) {
-      const cur = addDays(dStr, -i);
-      sum += caseMap.get(cur) ?? 0;
-    }
-    return sum / 7;
-  }
-
-  // Helper for rolling 14 sum up to date d (inclusive: d-13..d)
-  function getL14(dStr: string, customMap?: Map<string, number>): number {
-    const map = customMap || caseMap;
-    let sum = 0;
-    for (let i = 0; i < 14; i++) {
-      const cur = addDays(dStr, -i);
-      sum += map.get(cur) ?? 0;
-    }
-    return sum;
-  }
-
-  const load31Mei = getL14('2021-05-31');
-  const kI = OBS_2021['2021-05-31'].isolasi / load31Mei;
-  const kC = OBS_2021['2021-05-31'].icu / load31Mei;
-
-  const cutoffs = ['2021-06-07', '2021-06-10', '2021-06-14', '2021-06-17'];
+  const { map, kI, kC, load31Mei } = calibrate(cases);
   const results: Record<string, CutoffResult> = {};
-
-  for (const cutoff of cutoffs) {
-    const k7Cutoff = getK7(cutoff);
-    const k7Minus7 = getK7(addDays(cutoff, -7));
-    const g = Math.pow(k7Cutoff / k7Minus7, 1 / 7);
-    const waktuGandakan = Math.log(2) / Math.log(g);
-
-    // Multipliers: lambat (g^0.85), tengah (g), cepat (g^1.15)
-    // Note: since g > 1, g^0.85 is slower growth (takes longer to fill), g^1.15 is faster growth
-    const speeds = [
-      { name: 'lambat', rate: Math.pow(g, 0.85) },
-      { name: 'tengah', rate: g },
-      { name: 'cepat', rate: Math.pow(g, 1.15) },
-    ];
-
-    const icuMap: Record<string, string> = {};
-    const isoMap: Record<string, string> = {};
-
-    for (const { name, rate } of speeds) {
-      // Build future series for 60 days
-      const simMap = new Map<string, number>(caseMap);
-      for (let h = 1; h <= 60; h++) {
-        const futDate = addDays(cutoff, h);
-        const futCase = k7Cutoff * Math.pow(rate, h);
-        simMap.set(futDate, futCase);
-      }
-
-      let dateIcu: string | null = null;
-      let dateIso: string | null = null;
-
-      for (let h = 1; h <= 60; h++) {
-        const checkDate = addDays(cutoff, h);
-        const Ls = getL14(checkDate, simMap);
-
-        if (!dateIso && Ls * kI > CAP_31_MEI.isolasi) {
-          dateIso = checkDate;
-        }
-        if (!dateIcu && Ls * kC > CAP_31_MEI.icu) {
-          dateIcu = checkDate;
-        }
-        if (dateIcu && dateIso) break;
-      }
-
-      icuMap[name] = dateIcu || '';
-      isoMap[name] = dateIso || '';
-    }
-
+  for (const cutoff of ['2021-06-07', '2021-06-10', '2021-06-14', '2021-06-17']) {
+    const r = cutoffCore(map, kI, kC, cutoff);
     results[cutoff] = {
       cutoff,
-      waktuGandakan: Number(waktuGandakan.toFixed(1)),
-      g,
-      icuPenuh: {
-        lambat: icuMap['lambat'],
-        tengah: icuMap['tengah'],
-        cepat: icuMap['cepat'],
-      },
-      isolasiPenuh: {
-        lambat: isoMap['lambat'],
-        tengah: isoMap['tengah'],
-        cepat: isoMap['cepat'],
-      },
+      waktuGandakan: Number(r.waktuGandakan.toFixed(1)),
+      g: r.g,
+      icuPenuh: { lambat: r.icu.lambat, tengah: r.icu.tengah, cepat: r.icu.cepat },
+      isolasiPenuh: { lambat: r.iso.lambat, tengah: r.iso.tengah, cepat: r.iso.cepat },
     };
   }
-
   return { kI, kC, load31Mei, results };
 }
 
+// ---------------------------------------------------------------------------
+// Simulasi putar ulang (halaman Studi Kasus)
+// ---------------------------------------------------------------------------
+
+export interface SimPoint {
+  tanggal: string;
+  /** Kasus harian nyata (hanya sampai tanggal simulasi). */
+  kasus?: number;
+  /** Beban proksi dari kasus nyata (L14 × k), sampai tanggal simulasi. */
+  icuAktual?: number;
+  isoAktual?: number;
+  /** Beban proksi dari kasus nyata SETELAH tanggal simulasi (pembanding "kenyataan"). */
+  icuKenyataan?: number;
+  isoKenyataan?: number;
+  /** Proyeksi setelah tanggal simulasi. */
+  icuTengah?: number;
+  isoTengah?: number;
+  icuBand?: [number, number];
+  isoBand?: [number, number];
+}
+
+export interface SimDay {
+  tanggal: string;
+  kasusHarian: number;
+  rata7: number;
+  g: number;
+  waktuGandakan: number;
+  icuPenuh: Record<Speed, string>;
+  isolasiPenuh: Record<Speed, string>;
+  series: SimPoint[];
+}
+
+/** Proyeksi model seolah-olah "hari ini" = `tanggal` (data hanya sampai tanggal itu). */
+export function simulateDay(cases: DailyCaseRow[], tanggal: string, from: string, to: string): SimDay {
+  const { map, kI, kC } = calibrate(cases);
+  const horizon = Math.max(60, diffDays(tanggal, to));
+  const r = cutoffCore(map, kI, kC, tanggal, horizon);
+  const series: SimPoint[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    if (d <= tanggal) {
+      const L = l14(map, d);
+      series.push({ tanggal: d, kasus: map.get(d), icuAktual: Math.round(L * kC), isoAktual: Math.round(L * kI) });
+    } else {
+      const Lr = l14(map, d);
+      const lo = l14(r.sims.lambat, d);
+      const mid = l14(r.sims.tengah, d);
+      const hi = l14(r.sims.cepat, d);
+      series.push({
+        tanggal: d,
+        icuKenyataan: map.has(d) ? Math.round(Lr * kC) : undefined,
+        isoKenyataan: map.has(d) ? Math.round(Lr * kI) : undefined,
+        icuTengah: Math.round(mid * kC),
+        isoTengah: Math.round(mid * kI),
+        icuBand: [Math.round(lo * kC), Math.round(hi * kC)],
+        isoBand: [Math.round(lo * kI), Math.round(hi * kI)],
+      });
+    }
+  }
+  return {
+    tanggal,
+    kasusHarian: map.get(tanggal) ?? 0,
+    rata7: k7(map, tanggal),
+    g: r.g,
+    waktuGandakan: r.waktuGandakan,
+    icuPenuh: r.icu,
+    isolasiPenuh: r.iso,
+    series,
+  };
+}
+
+export function diffDays(a: string, b: string): number {
+  return Math.round((parseDate(b).getTime() - parseDate(a).getTime()) / 86400000);
+}
+
+export { addDays as tambahHari };
+
+/** Jendela BWB = [penuh_cepat − LT_max, penuh_lambat − LT_min] (SPEC §9.4, C = 0). */
+export function bwbWindow(penuhCepat: string, penuhLambat: string, ltMin: number, ltMax: number, cadangan = 0) {
+  if (!penuhCepat || !penuhLambat) return null;
+  return { awal: addDays(penuhCepat, -ltMax - cadangan), akhir: addDays(penuhLambat, -ltMin - cadangan) };
+}
+
+/** Status BWB pada tanggal `hariIni` (SPEC §8.7: Aman > 14 hari, Siaga 0–14, Terlewat < 0). */
+export function statusPada(hariIni: string, w: { awal: string; akhir: string } | null): 'AMAN' | 'SIAGA' | 'SIAGA_SEBAGIAN' | 'TERLEWAT' {
+  if (!w) return 'AMAN';
+  if (hariIni > w.akhir) return 'TERLEWAT';
+  if (hariIni > w.awal) return 'SIAGA_SEBAGIAN';
+  return diffDays(hariIni, w.awal) <= 14 ? 'SIAGA' : 'AMAN';
+}
+
+/**
+ * Hari pertama (dalam rentang) ketika model, dengan data sampai hari itu,
+ * memberi status selain AMAN untuk sebuah persiapan.
+ */
+export function hariPeringatanPertama(
+  cases: DailyCaseRow[],
+  from: string,
+  to: string,
+  sumber: 'icu' | 'isolasi',
+  ltMin: number,
+  ltMax: number
+): string | null {
+  const { map, kI, kC } = calibrate(cases);
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const r = cutoffCore(map, kI, kC, d);
+    const p = sumber === 'icu' ? r.icu : r.iso;
+    const st = statusPada(d, bwbWindow(p.cepat, p.lambat, ltMin, ltMax));
+    if (st !== 'AMAN') return d;
+  }
+  return null;
+}

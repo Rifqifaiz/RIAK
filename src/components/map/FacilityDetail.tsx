@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { X, MapPin, ExternalLink, Image as ImageIcon, Satellite, Building2, Clock, Phone, Navigation, Loader2 } from 'lucide-react';
+import { X, MapPin, ExternalLink, Image as ImageIcon, Satellite, Building2, Clock, Phone, Navigation, Loader2, Maximize2 } from 'lucide-react';
 import { Facility, LeadTime, Region } from '../../types';
 import { calculateBwb } from '../../engine/bwb';
 import { Angka } from '../common/Angka';
 import { DataMissing } from '../common/DataMissing';
 import { StatusBadge } from '../common/StatusBadge';
-import { aerialImageUrl, ESRI_ATTRIBUTION, fetchWikiPhoto, googleLinks, WikiPhoto } from '../../data/media';
-import { haversineKm, isValidJabodetabekCoord } from '../../data/geo';
+import { aerialImageUrl, ESRI_ATTRIBUTION, fetchWikiPhoto, googleEmbeds, googleLinks, WikiPhoto } from '../../data/media';
+import { haversineKm, isValidJabodetabekCoord, uniqueFacilities } from '../../data/geo';
 import { MapSelection, Puskesmas } from './FacilityLayer';
 
 const ACUAN = '2021-06-10';
@@ -29,16 +30,112 @@ interface Props {
   onSelect: (s: MapSelection) => void;
 }
 
-/** Foto asli (Wikipedia bila cocok) + citra satelit lokasi. */
+type MediaTab = 'foto' | 'street' | 'satelit';
+
+const MEDIA_TABS: Array<{ id: MediaTab; label: string; Icon: React.FC<{ className?: string }> }> = [
+  { id: 'foto', label: 'Foto', Icon: ImageIcon },
+  { id: 'street', label: 'Street View', Icon: Navigation },
+  { id: 'satelit', label: 'Satelit', Icon: Satellite },
+];
+
+/** Isi media: foto Wikipedia, Google Street View (iframe resmi), atau citra satelit. */
+const MediaView: React.FC<{ tab: MediaTab; nama: string; lat: number; lon: number; photo: WikiPhoto | null | undefined; large?: boolean }> = ({
+  tab,
+  nama,
+  lat,
+  lon,
+  photo,
+  large,
+}) => {
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => setLoaded(false), [tab, nama]);
+  const g = googleEmbeds(lat, lon);
+  const skeleton = !loaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-brand-blue-50 to-brand-pink-50" />;
+
+  if (tab === 'street' || (tab === 'satelit' && large)) {
+    return (
+      <>
+        {skeleton}
+        <iframe
+          key={tab + nama}
+          title={tab === 'street' ? `Street View ${nama}` : `Satelit Google ${nama}`}
+          src={tab === 'street' ? g.streetView : g.satelit}
+          onLoad={() => setLoaded(true)}
+          className="absolute inset-0 h-full w-full border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+        />
+      </>
+    );
+  }
+  const src = tab === 'foto' && photo ? photo.thumb : aerialImageUrl(lat, lon, large ? 1280 : 640, large ? 720 : 360, large ? 180 : 140);
+  return (
+    <>
+      {skeleton}
+      <img
+        key={src}
+        src={src}
+        alt={tab === 'foto' ? `Foto ${nama}` : `Citra satelit lokasi ${nama}`}
+        onLoad={() => setLoaded(true)}
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+      />
+      {tab === 'satelit' && (
+        <span className="pointer-events-none absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_4px_rgba(244,114,182,0.6)]" />
+      )}
+    </>
+  );
+};
+
+const TabBar: React.FC<{ tab: MediaTab; setTab: (t: MediaTab) => void; photo: WikiPhoto | null | undefined }> = ({ tab, setTab, photo }) => (
+  <div className="flex gap-1 rounded-lg bg-black/60 p-0.5 backdrop-blur">
+    {MEDIA_TABS.map(({ id, label, Icon }) => (
+      <button
+        key={id}
+        type="button"
+        onClick={() => setTab(id)}
+        disabled={id === 'foto' && !photo}
+        title={id === 'foto' && photo === null ? 'Foto tidak ditemukan di Wikipedia' : undefined}
+        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition disabled:opacity-40 ${
+          tab === id ? 'bg-white text-[#14213D]' : 'text-white/85 hover:text-white'
+        }`}
+      >
+        {id === 'foto' && photo === undefined ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />} {label}
+      </button>
+    ))}
+  </div>
+);
+
+const Credit: React.FC<{ tab: MediaTab; photo: WikiPhoto | null | undefined; large?: boolean }> = ({ tab, photo, large }) => (
+  <p className={`leading-snug ${large ? 'text-xs text-white/60' : 'mt-1 text-[10px] text-ink-muted'}`}>
+    {tab === 'foto' && photo ? (
+      <>
+        Foto:{' '}
+        <a href={photo.fileUrl ?? photo.articleUrl} target="_blank" rel="noreferrer" className="underline">
+          Wikipedia — {photo.title}
+        </a>{' '}
+        (lisensi di halaman berkas)
+      </>
+    ) : tab === 'street' ? (
+      <>Google Street View · panorama terdekat dari titik faskes. Geser untuk melihat sekeliling.</>
+    ) : large ? (
+      <>Citra satelit Google Maps</>
+    ) : (
+      <>{ESRI_ATTRIBUTION}</>
+    )}
+  </p>
+);
+
+/** Header media + tombol perbesar (lightbox). */
 const MediaHeader: React.FC<{ nama: string; lat: number; lon: number }> = ({ nama, lat, lon }) => {
   const [photo, setPhoto] = useState<WikiPhoto | null | undefined>(undefined);
-  const [tab, setTab] = useState<'foto' | 'satelit'>('satelit');
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const [tab, setTab] = useState<MediaTab>('street');
+  const [big, setBig] = useState(false);
 
   useEffect(() => {
     let alive = true;
     setPhoto(undefined);
-    setTab('satelit');
+    setTab('street');
     fetchWikiPhoto(nama, lat, lon).then((p) => {
       if (!alive) return;
       setPhoto(p);
@@ -49,63 +146,53 @@ const MediaHeader: React.FC<{ nama: string; lat: number; lon: number }> = ({ nam
     };
   }, [nama, lat, lon]);
 
-  useEffect(() => setImgLoaded(false), [tab, nama]);
-
-  const src = tab === 'foto' && photo ? photo.thumb : aerialImageUrl(lat, lon);
+  useEffect(() => {
+    if (!big) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setBig(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [big]);
 
   return (
     <div>
-      <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-surface-2">
-        {!imgLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-brand-blue-50 to-brand-pink-50" />}
-        <img
-          key={src}
-          src={src}
-          alt={tab === 'foto' ? `Foto ${nama}` : `Citra satelit lokasi ${nama}`}
-          onLoad={() => setImgLoaded(true)}
-          className={`h-full w-full object-cover transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
-        />
-        {tab === 'satelit' && (
-          <span className="pointer-events-none absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_4px_rgba(244,114,182,0.6)]" />
-        )}
-        <div className="absolute left-2 top-2 flex gap-1 rounded-lg bg-black/55 p-0.5 backdrop-blur">
-          <button
-            type="button"
-            onClick={() => setTab('foto')}
-            disabled={!photo}
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition disabled:opacity-40 ${
-              tab === 'foto' ? 'bg-white text-[#14213D]' : 'text-white/80 hover:text-white'
-            }`}
-            title={photo === null ? 'Foto tidak ditemukan di Wikipedia' : undefined}
-          >
-            {photo === undefined ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImageIcon className="h-3 w-3" />} Foto
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('satelit')}
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition ${
-              tab === 'satelit' ? 'bg-white text-[#14213D]' : 'text-white/80 hover:text-white'
-            }`}
-          >
-            <Satellite className="h-3 w-3" /> Satelit
-          </button>
+      <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-surface-2">
+        <MediaView tab={tab} nama={nama} lat={lat} lon={lon} photo={photo} />
+        <div className="absolute left-2 top-2 z-10">
+          <TabBar tab={tab} setTab={setTab} photo={photo} />
         </div>
+        <button
+          type="button"
+          onClick={() => setBig(true)}
+          className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white backdrop-blur hover:bg-black/75"
+        >
+          <Maximize2 className="h-3 w-3" /> Perbesar
+        </button>
       </div>
-      <p className="mt-1 text-[10px] leading-snug text-ink-muted">
-        {tab === 'foto' && photo ? (
-          <>
-            Foto:{' '}
-            <a href={photo.fileUrl ?? photo.articleUrl} target="_blank" rel="noreferrer" className="underline hover:text-ink">
-              Wikipedia — {photo.title}
-            </a>{' '}
-            (lisensi di halaman berkas)
-          </>
-        ) : (
-          <>
-            {ESRI_ATTRIBUTION}
-            {photo === null && ' · foto asli belum ditemukan, lihat di Google Maps'}
-          </>
+      <Credit tab={tab} photo={photo} />
+
+      {big &&
+        createPortal(
+          <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm riak-fade-up" onClick={() => setBig(false)}>
+            <div className="flex w-full max-w-6xl flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between gap-3 text-white">
+                <div className="min-w-0">
+                  <div className="truncate font-display text-lg font-bold">{nama}</div>
+                  <Credit tab={tab} photo={photo} large />
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <TabBar tab={tab} setTab={setTab} photo={photo} />
+                  <button onClick={() => setBig(false)} className="rounded-lg bg-white/10 p-2 hover:bg-white/20" aria-label="Tutup">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="relative h-[75vh] overflow-hidden rounded-2xl bg-black">
+                <MediaView tab={tab} nama={nama} lat={lat} lon={lon} photo={photo} large />
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
-      </p>
     </div>
   );
 };
@@ -150,7 +237,7 @@ export const FacilityDetail: React.FC<Props> = ({ selection, regions, facilities
   const lon = selection.kind === 'rs' ? Number(selection.f.lon) : selection.p.lon;
   const nama = selection.kind === 'rs' ? selection.f.nama : selection.p.nama;
 
-  const validRs = useMemo(() => facilities.filter((f) => isValidJabodetabekCoord(f.lat, f.lon)), [facilities]);
+  const validRs = useMemo(() => uniqueFacilities(facilities.filter((f) => isValidJabodetabekCoord(f.lat, f.lon))), [facilities]);
 
   // Konteks sekitar (dihitung dari koordinat data)
   const nearestRs = useMemo(() => {
@@ -200,7 +287,7 @@ export const FacilityDetail: React.FC<Props> = ({ selection, regions, facilities
             <div className="mb-1.5 font-semibold text-ink">RS rujukan terdekat</div>
             {nearestRs.map(({ f, d }) => (
               <button
-                key={f.kode_rs}
+                key={`${f.kode_rs}@${f.lat},${f.lon}`}
                 onClick={() => onSelect({ kind: 'rs', f })}
                 className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-ink-muted hover:bg-surface-2 hover:text-ink"
               >
@@ -301,7 +388,7 @@ export const FacilityDetail: React.FC<Props> = ({ selection, regions, facilities
           <div className="mb-1.5 font-semibold text-ink">RS terdekat (opsi pinjam antarfaskes)</div>
           {nearestRs.map(({ f: o, d }) => (
             <button
-              key={o.kode_rs}
+              key={`${o.kode_rs}@${o.lat},${o.lon}`}
               onClick={() => onSelect({ kind: 'rs', f: o })}
               className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-ink-muted hover:bg-surface-2 hover:text-ink"
             >

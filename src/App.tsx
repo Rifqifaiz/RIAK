@@ -26,13 +26,21 @@ export const App: React.FC = () => {
   const [currentScenario, setCurrentScenario] = useState<string>('covid-delta');
   const [simulationDate, setSimulationDate] = useState<string>('2021-06-10');
   const [splash, setSplash] = useState<Splash>(null);
+  // Setelah login, isi aplikasi baru dipasang saat animasi riak mulai memudar,
+  // supaya tetes air & riak tidak tersendat oleh pemuatan halaman (globe, peta, dll.).
+  const [holdContent, setHoldContent] = useState(false);
 
   // 1. Belum masuk → halaman login di depan
   if (!user) {
     return (
       <>
         <InteractiveBackground />
-        <Login onSuccess={() => setSplash('login')} />
+        <Login
+          onSuccess={() => {
+            setHoldContent(true);
+            setSplash('login');
+          }}
+        />
       </>
     );
   }
@@ -44,12 +52,17 @@ export const App: React.FC = () => {
         <WaterDropSplash
           greeting={splash === 'login' ? `Selamat datang, ${user.nama}` : undefined}
           autoCloseMs={splash === 'login' ? 2200 : undefined}
-          onComplete={() => setSplash(null)}
+          onLeaving={() => setHoldContent(false)}
+          onComplete={() => {
+            setHoldContent(false);
+            setSplash(null);
+          }}
         />
       )}
 
       <InteractiveBackground />
 
+      {!holdContent && (
       <div className="relative z-10 flex min-h-screen flex-col bg-transparent text-ink selection:bg-brand-pink-50 selection:text-brand-pink font-body">
         <Navbar
           currentScenario={currentScenario}
@@ -61,7 +74,7 @@ export const App: React.FC = () => {
 
         <main className="flex-1">
           <Routes>
-            <Route path="/" element={<Beranda onReplaySplash={() => setSplash('replay')} />} />
+            <Route path="/" element={<Beranda onReplaySplash={() => setSplash('replay')} introPlaying={splash !== null} />} />
             <Route path="/respons" element={<Respons />} />
             <Route path="/studi-kasus-2021" element={<StudiKasus />} />
             <Route path="/radar" element={<Radar />} />
@@ -75,6 +88,7 @@ export const App: React.FC = () => {
 
         <Footer />
       </div>
+      )}
     </HashRouter>
   );
 };

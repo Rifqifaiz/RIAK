@@ -56,3 +56,14 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 6371 * 2 * Math.asin(Math.sqrt(a));
 }
+
+/** Baris RS yang identik (kode & koordinat sama) hanya ditampilkan sekali di peta. */
+export function uniqueFacilities<T extends { kode_rs: string; lat: number; lon: number }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.filter((f) => {
+    const k = `${f.kode_rs}@${f.lat},${f.lon}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
