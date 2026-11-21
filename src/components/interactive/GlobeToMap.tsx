@@ -151,11 +151,11 @@ export const GlobeToMap: React.FC<{ introPlaying?: boolean }> = ({ introPlaying 
 
   useEffect(() => {
     Promise.all([
-      fetchCsv<Record<string, unknown>>('/data/regions.csv'),
-      fetchCsv<Facility>('/data/facilities.csv'),
-      fetchCsv<Record<string, any>>('/data/lead_times.csv').then(normalizeLeadTimes),
-      fetchCsv<{ tanggal: string; kasus: number }>('/data/cases_2021_dki.csv'),
-      fetch('/data/puskesmas_osm.json')
+      fetchCsv<Record<string, unknown>>('./data/regions.csv'),
+      fetchCsv<Facility>('./data/facilities.csv'),
+      fetchCsv<Record<string, any>>('./data/lead_times.csv').then(normalizeLeadTimes),
+      fetchCsv<{ tanggal: string; kasus: number }>('./data/cases_2021_dki.csv'),
+      fetch('./data/puskesmas_osm.json')
         .then((r) => (r.ok ? (r.json() as Promise<PuskesmasFile>) : null))
         .catch(() => null),
     ]).then(([r, f, lt, cs, pkm]) => {

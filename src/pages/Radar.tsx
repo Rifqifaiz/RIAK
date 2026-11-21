@@ -30,8 +30,8 @@ export const Radar: React.FC = () => {
 
   useEffect(() => {
     Promise.all([
-      fetchJson<any>('/data/pathogen_profiles.json'),
-      fetchCsv<EntryPoint>('/data/entry_points.csv'),
+      fetchJson<any>('./data/pathogen_profiles.json'),
+      fetchCsv<EntryPoint>('./data/entry_points.csv'),
     ]).then(([jsonRes, entries]) => {
       const profList = Array.isArray(jsonRes) ? jsonRes : (jsonRes as any)?.profiles || [];
       setProfiles(profList);

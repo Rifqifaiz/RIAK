@@ -208,7 +208,7 @@ export const InteractiveGlobe = forwardRef<InteractiveGlobeHandle, InteractiveGl
           }
           dots = new Float32Array(out);
         };
-        img.src = '/globe/mask.png';
+        img.src = './globe/mask.png';
       };
       retryRef.current = load;
       load();

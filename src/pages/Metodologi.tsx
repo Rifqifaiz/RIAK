@@ -10,7 +10,7 @@ export const Metodologi: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    fetchCsv<Record<string, any>>('/data/lead_times.csv').then(normalizeLeadTimes).then((data) => {
+    fetchCsv<Record<string, any>>('./data/lead_times.csv').then(normalizeLeadTimes).then((data) => {
       setLeadTimes(data);
       setLoading(false);
     });

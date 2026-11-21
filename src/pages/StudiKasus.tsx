@@ -74,10 +74,10 @@ export const StudiKasus: React.FC = () => {
 
   useEffect(() => {
     Promise.all([
-      fetchCsv<{ tanggal: string; kasus: number }>('/data/cases_2021_dki.csv'),
-      fetchCsv<BorRow>('/data/bor_obs_2021_dki.csv'),
-      fetchJson<Event>('/data/events_2021.json'),
-      fetchCsv<Record<string, any>>('/data/lead_times.csv').then(normalizeLeadTimes),
+      fetchCsv<{ tanggal: string; kasus: number }>('./data/cases_2021_dki.csv'),
+      fetchCsv<BorRow>('./data/bor_obs_2021_dki.csv'),
+      fetchJson<Event>('./data/events_2021.json'),
+      fetchCsv<Record<string, any>>('./data/lead_times.csv').then(normalizeLeadTimes),
     ]).then(([c, b, e, lt]) => {
       setCases(c.map((d) => ({ tanggal: String(d.tanggal), kasus: Number(d.kasus) || 0 })));
       setBor(b.map((r) => ({ ...r, tanggal: String(r.tanggal) })));
@@ -604,10 +604,10 @@ export const StudiKasus: React.FC = () => {
       {/* Unduhan */}
       <div className="flex flex-wrap gap-2">
         {[
-          ['/downloads/backtest_2021.py', 'backtest_2021.py'],
-          ['/data/cases_2021_dki.csv', 'Kasus harian DKI (CSV)'],
-          ['/data/bor_obs_2021_dki.csv', 'Keterisian RS DKI (CSV)'],
-          ['/data/events_2021.json', 'Linimasa kejadian (JSON)'],
+          ['./downloads/backtest_2021.py', 'backtest_2021.py'],
+          ['./data/cases_2021_dki.csv', 'Kasus harian DKI (CSV)'],
+          ['./data/bor_obs_2021_dki.csv', 'Keterisian RS DKI (CSV)'],
+          ['./data/events_2021.json', 'Linimasa kejadian (JSON)'],
         ].map(([href, label]) => (
           <a
             key={href}

@@ -52,14 +52,14 @@ export async function loadAllAppData(): Promise<LoadedAppData> {
     pathogenProfiles,
     entryPoints,
   ] = await Promise.all([
-    fetchCsv<Region>('/data/regions.csv'),
-    fetchCsv<Facility>('/data/facilities.csv'),
-    fetchCsv<Record<string, any>>('/data/lead_times.csv').then(normalizeLeadTimes),
-    fetchCsv<BorObs>('/data/bor_obs_2021_dki.csv'),
-    fetchCsv<{ tanggal: string; kasus: number }>('/data/cases_2021_dki.csv'),
-    fetchJson<Event2021>('/data/events_2021.json'),
-    fetchJson<PathogenProfile>('/data/pathogen_profiles.json'),
-    fetchCsv<EntryPoint>('/data/entry_points.csv'),
+    fetchCsv<Region>('./data/regions.csv'),
+    fetchCsv<Facility>('./data/facilities.csv'),
+    fetchCsv<Record<string, any>>('./data/lead_times.csv').then(normalizeLeadTimes),
+    fetchCsv<BorObs>('./data/bor_obs_2021_dki.csv'),
+    fetchCsv<{ tanggal: string; kasus: number }>('./data/cases_2021_dki.csv'),
+    fetchJson<Event2021>('./data/events_2021.json'),
+    fetchJson<PathogenProfile>('./data/pathogen_profiles.json'),
+    fetchCsv<EntryPoint>('./data/entry_points.csv'),
   ]);
 
   const cases2021: DailyCase[] = cases2021Raw.map(c => ({

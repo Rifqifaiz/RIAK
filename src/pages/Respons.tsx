@@ -23,9 +23,9 @@ export const Respons: React.FC = () => {
 
   useEffect(() => {
     Promise.all([
-      fetchCsv<Facility>('/data/facilities.csv'),
-      fetchCsv<Record<string, unknown>>('/data/regions.csv'),
-      fetchCsv<Record<string, any>>('/data/lead_times.csv').then(normalizeLeadTimes),
+      fetchCsv<Facility>('./data/facilities.csv'),
+      fetchCsv<Record<string, unknown>>('./data/regions.csv'),
+      fetchCsv<Record<string, any>>('./data/lead_times.csv').then(normalizeLeadTimes),
     ]).then(([facsRaw, regsRaw, lts]) => {
       const facs = normalizeFacilities(facsRaw);
       setFacilities(facs);
