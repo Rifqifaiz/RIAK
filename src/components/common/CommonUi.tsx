@@ -1,22 +1,36 @@
 import React from 'react';
 
-export const Logo: React.FC<{ className?: string }> = ({ className = '' }) => {
+import logoTerang from '../../assets/riak-logo-light.png';
+import logoGelap from '../../assets/riak-logo-dark.png';
+
+/**
+ * Logo resmi RIAK. Mode terang → versi gradien biru–pink; mode gelap → versi putih.
+ * `onDark` memaksa versi putih untuk latar yang selalu gelap (splash, panel login).
+ */
+export const Logo: React.FC<{ className?: string; size?: 'sm' | 'md' | 'lg' | 'xl'; onDark?: boolean; tagline?: boolean }> = ({
+  className = '',
+  size = 'sm',
+  onDark = false,
+  tagline = true,
+}) => {
+  const h = { sm: 'h-8', md: 'h-9', lg: 'h-14', xl: 'h-24 md:h-28' }[size];
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      {/* Ripple Icon */}
-      <div className="relative flex h-8 w-8 items-center justify-center">
-        <span className="absolute h-8 w-8 rounded-full border border-brand-blue/30 dark:border-cyan-300/30" />
-        <span className="absolute h-5 w-5 rounded-full border border-brand-blue/60 dark:border-cyan-300/60" />
-        <span className="h-2 w-2 rounded-full bg-brand-blue dark:bg-cyan-300" />
-      </div>
-      <div className="flex flex-col">
-        <span className="font-display text-xl font-extrabold tracking-tight text-ink leading-none">
-          RIAK
-        </span>
-        <span className="text-[10px] font-medium text-ink-muted tracking-tight">
+    <div className={`flex items-center gap-3 ${className}`}>
+      {onDark ? (
+        <img src={logoGelap} alt="RIAK" className={`${h} w-auto select-none`} draggable={false} />
+      ) : (
+        <>
+          <img src={logoTerang} alt="RIAK" className={`${h} w-auto select-none dark:hidden`} draggable={false} />
+          <img src={logoGelap} alt="RIAK" className={`${h} hidden w-auto select-none dark:block`} draggable={false} />
+        </>
+      )}
+      {tagline && (
+        <span className={`hidden max-w-[9rem] border-l pl-3 text-[10px] font-medium leading-tight tracking-tight sm:block ${
+          onDark ? 'border-white/20 text-white/60' : 'border-line text-ink-muted'
+        }`}>
           Radar Indikasi Awal Kedaruratan
         </span>
-      </div>
+      )}
     </div>
   );
 };

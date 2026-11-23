@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Logo } from '../common/CommonUi';
 
 interface WaterDropSplashProps {
   onComplete: () => void;
@@ -213,8 +214,9 @@ export const WaterDropSplash: React.FC<WaterDropSplashProps> = ({ onComplete, gr
           <span>RADAR INDIKASI AWAL KEDARURATAN</span>
         </div>
 
-        <h1 className="font-display text-7xl md:text-8xl font-extrabold tracking-tight text-white mb-2 drop-shadow-[0_0_35px_rgba(0,242,254,0.35)]">
-          RIAK
+        <h1 className="mb-4 drop-shadow-[0_0_35px_rgba(0,242,254,0.35)]">
+          <Logo size="xl" onDark tagline={false} />
+          <span className="sr-only">RIAK</span>
         </h1>
 
         {greeting && <p className="mb-1 text-sm font-semibold text-white/80">{greeting}</p>}

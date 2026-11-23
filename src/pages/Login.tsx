@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, LogIn, Sparkles, ShieldCheck, Globe2, Timer, Sun, Moon, Info, Loader2 } from 'lucide-react';
 import { useAuth, DEMO_ACCOUNT, isDemoCredential } from '../components/common/auth';
 import { useTheme } from '../components/common/theme';
+import { Logo } from '../components/common/CommonUi';
 
 interface LoginProps {
   onSuccess: () => void;
@@ -72,17 +73,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
             <span className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300 shadow-[0_0_30px_rgba(103,232,249,0.8)]" />
           </div>
 
-          <div className="relative flex items-center gap-3">
-            <div className="relative flex h-10 w-10 items-center justify-center">
-              <span className="absolute h-10 w-10 rounded-full border border-cyan-300/40" />
-              <span className="absolute h-6 w-6 rounded-full border border-cyan-300/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-cyan-300" />
-            </div>
-            <div>
-              <div className="font-display text-2xl font-extrabold leading-none">RIAK</div>
-              <div className="text-[11px] text-white/60">Radar Indikasi Awal Kedaruratan</div>
-            </div>
-          </div>
+          <Logo size="lg" onDark className="relative" />
 
           <div className="relative space-y-6">
             <h1 className="font-display text-4xl font-extrabold leading-tight tracking-tight">
@@ -107,10 +98,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
 
         {/* Formulir */}
         <div className="p-7 sm:p-10">
-          <div className="mb-8 md:hidden">
-            <div className="font-display text-3xl font-extrabold text-ink">RIAK</div>
-            <div className="text-xs text-ink-muted">Radar Indikasi Awal Kedaruratan</div>
-          </div>
+          <Logo size="md" className="mb-8 md:hidden" />
 
           <h2 className="font-display text-2xl font-bold text-ink">Masuk</h2>
           <p className="mt-1 text-sm text-ink-muted">Untuk pejabat dan manajemen fasilitas kesehatan.</p>

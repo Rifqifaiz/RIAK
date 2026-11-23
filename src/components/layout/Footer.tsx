@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Logo } from '../common/CommonUi';
 
 export const Footer: React.FC = () => {
   return (
@@ -7,7 +8,7 @@ export const Footer: React.FC = () => {
       <div className="mx-auto max-w-[1200px] px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div className="md:col-span-2">
-            <h3 className="font-display text-lg font-extrabold text-ink mb-2">RIAK</h3>
+            <h3 className="mb-3"><Logo size="md" tagline={false} /><span className="sr-only">RIAK</span></h3>
             <p className="text-xs text-ink-muted leading-relaxed max-w-md">
               Radar Indikasi Awal Kedaruratan — Sistem pendukung keputusan yang menghitung Batas Waktu Bertindak (BWB) setiap fasilitas kesehatan, sejak wabah masih di luar negeri.
             </p>
